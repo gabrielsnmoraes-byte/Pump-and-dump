@@ -378,7 +378,7 @@ body:not(.authed) .tabs,body:not(.authed) .top .seg,body:not(.authed) .top .icon
 <script>
 (function(){
 "use strict";
-const LB=0.45359237, MI=1.609344, LOCAL_KEY="ironbook-v1";
+const APP_VERSION="v9";const LB=0.45359237, MI=1.609344, LOCAL_KEY="ironbook-v1";
 const $=(s,r=document)=>r.querySelector(s);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
@@ -1030,7 +1030,13 @@ function renderSheet(){const el=$("#sheet");const sh=S.sheet;if(!sh){el.innerHTM
   else if(sh.type==="settings"){title="Settings";body=settingsBody()}
   else if(sh.type==="plates"){title="Plate calculator";body=platesBody()}
   else if(sh.type==="summary"){const w=S.workouts.find(x=>x.id===sh.id);if(!w){S.sheet=null;el.innerHTML="";return}title="Workout complete";body=summaryBody(w)}
-  el.innerHTML=`<div class="sheet-bg" data-act="close-sheet-bg"><div class="sheet" role="dialog" aria-modal="true" aria-label="${title}"><div class="sheet-h"><h2>${title}</h2><button class="icon-btn" data-act="close-sheet" aria-label="Close">${ICON.x}</button></div><div class="sheet-b" id="sheet-b">${body}</div>${foot}</div></div>`;el.dataset.type=key;if(keep){const nb=$("#sheet-b");if(nb)nb.scrollTop=keep}}
+  const sb=$("#sheet-b");
+  if(sb&&el.dataset.type===key){ // same panel: update contents in place so the scroll position is untouched
+    const top=sb.scrollTop;const h=el.querySelector(".sheet-h h2");if(h)h.textContent=title;
+    sb.innerHTML=body;const f=$("#sheet-foot");if(f)f.innerHTML=foot;
+    if(sb.scrollTop!==top)sb.scrollTop=top;requestAnimationFrame(()=>{if(Math.abs(sb.scrollTop-top)>1)sb.scrollTop=top});return}
+  el.innerHTML=`<div class="sheet-bg" data-act="close-sheet-bg"><div class="sheet" role="dialog" aria-modal="true" aria-label="${title}"><div class="sheet-h"><h2>${title}</h2><button class="icon-btn" data-act="close-sheet" aria-label="Close">${ICON.x}</button></div><div class="sheet-b" id="sheet-b">${body}</div><div id="sheet-foot">${foot}</div></div></div>`;el.dataset.type=key;
+  if(sh.type==="routine"&&S.rtReturn!=null){const nb=$("#sheet-b");const v=S.rtReturn;S.rtReturn=null;if(nb)nb.scrollTop=v==="bottom"?nb.scrollHeight:v}}
 function pickerBody(sh){
   if(sh.creating)return `<div class="field"><label class="label" for="cx-name">Exercise name</label><input class="in" id="cx-name" placeholder="e.g. Landmine Press"></div>
     <div class="field"><span class="label">Type</span><div class="seg" role="group"><button data-act="cx-kind" data-v="lift" aria-pressed="${sh.cxKind==="lift"||!sh.cxKind}">Reps</button><button data-act="cx-kind" data-v="timed" aria-pressed="${sh.cxKind==="timed"}">Timed hold</button><button data-act="cx-kind" data-v="cardio" aria-pressed="${sh.cxKind==="cardio"}">Cardio</button></div></div>
@@ -1076,6 +1082,7 @@ function settingsBody(){const restOpts=[45,60,90,120,150,180,240];
      ${S.importOpen?`<textarea class="in" id="imp-text" placeholder="Paste backup text here, or choose a file"></textarea>
        <div class="row" style="flex-wrap:wrap"><label class="btn sm" for="imp-file">Choose file</label><input id="imp-file" type="file" accept=".json,application/json,text/plain" hidden><button class="btn sm primary" data-act="import-go">Import pasted text</button></div>`:""}
    </div>
+   <div class="muted" style="font-size:12px">Pump &amp; Dump ${APP_VERSION}</div>
    <div class="field"><span class="label">Account</span><div class="muted" style="font-size:14px">${esc(user&&user.email||"")}</div>
      ${S.confirm==="signout"?`<div class="confirm"><span>${pending()?"Some changes haven't synced yet. Sign out anyway?":"Sign out of this device?"}</span><button class="btn sm" data-act="cancel-confirm-sheet">Cancel</button><button class="btn sm danger solid" data-act="signout">Sign out</button></div>`
        :`<button class="btn sm" data-act="ask-signout" style="align-self:flex-start">Sign out</button>`}</div>`}
@@ -1114,7 +1121,7 @@ document.addEventListener("click",ev=>{const b=ev.target.closest("[data-act]");i
     startWorkout(w.name,(w.entries||[]).map(e=>{const ex=exById(e.exId)||{id:e.exId,name:e.name,kind:e.kind};
       if(e.kind==="cardio")return newEntry(ex,{cardio:{mode:e.cardio&&e.cardio.mode,incline:e.cardio&&e.cardio.incline}});
       const n=newEntry(ex,{sets:(e.sets||[]).length});n.sets=(e.sets||[]).map(s=>isTimed(e)?{w:s.w??null,t:s.t??null,done:false}:{w:s.w,r:s.r,done:false});return n}));break}
-  case "open-picker":S.sheet={type:"picker",target:v,q:"",group:"All",creating:false};renderSheet();setTimeout(()=>{const q=$("#pick-q");if(q&&window.matchMedia("(pointer:fine)").matches)q.focus()},30);break;
+  case "open-picker":if(v==="routine"){const sb=$("#sheet-b");S.rtReturn=sb?sb.scrollTop:0}S.sheet={type:"picker",target:v,q:"",group:"All",creating:false};renderSheet();setTimeout(()=>{const q=$("#pick-q");if(q&&window.matchMedia("(pointer:fine)").matches)q.focus()},30);break;
   case "pick-group":S.sheet.group=v;renderSheet();break;
   case "pick":{const ex=exById(b.dataset.id);if(ex)addPicked(ex);break}
   case "cx-new":S.sheet.creating=true;S.sheet.cxKind="lift";S.sheet.cxName=S.sheet.q;renderSheet();{const n=$("#cx-name");if(n)n.value=S.sheet.q||""}break;
@@ -1190,7 +1197,7 @@ document.addEventListener("click",ev=>{const b=ev.target.closest("[data-act]");i
   case "del-r":S.routines=S.routines.filter(r=>r.id!==b.dataset.id);S.confirm=null;saveProfile();render();break;
   }});
 function addPicked(ex){const sh=S.sheet;
-  if(sh.target==="routine"){S.rtErr=null;const pr=(S.exProg||{})[ex.id]||S.lastRange||{min:8,max:12};S.routineDraft.items.push(ex.kind==="cardio"?{exId:ex.id,name:ex.name,kind:ex.kind,sets:1}:ex.timed?{exId:ex.id,name:ex.name,kind:ex.kind,sets:3,reps:30,timed:true}:{exId:ex.id,name:ex.name,kind:ex.kind,sets:3,repMin:pr.min,repMax:pr.max,reps:pr.min,inc:pr.inc||defaultIncKg()});S.sheet={type:"routine"};renderSheet();return}
+  if(sh.target==="routine"){S.rtErr=null;S.rtReturn="bottom";const pr=(S.exProg||{})[ex.id]||S.lastRange||{min:8,max:12};S.routineDraft.items.push(ex.kind==="cardio"?{exId:ex.id,name:ex.name,kind:ex.kind,sets:1}:ex.timed?{exId:ex.id,name:ex.name,kind:ex.kind,sets:3,reps:30,timed:true}:{exId:ex.id,name:ex.name,kind:ex.kind,sets:3,repMin:pr.min,repMax:pr.max,reps:pr.min,inc:pr.inc||defaultIncKg()});S.sheet={type:"routine"};renderSheet();return}
   if(!S.active){startWorkout(null,[newEntry(ex)]);S.sheet=null;renderSheet();return}
   S.active.entries.push(newEntry(ex));S.sheet=null;saveProfile();render();
   setTimeout(()=>{const secs=document.querySelectorAll(".ex");const last=secs[secs.length-1];if(last)last.scrollIntoView({behavior:"smooth",block:"center"})},50)}
