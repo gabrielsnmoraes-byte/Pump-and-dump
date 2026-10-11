@@ -183,11 +183,14 @@ textarea.in{text-align:left;min-height:72px;resize:vertical;padding:10px;font-we
 .rt-it{display:flex;flex-direction:column;gap:1px}
 .rt-last{font-size:12px;color:var(--muted);padding-left:2px}
 .rt-edit-item{display:flex;flex-direction:column;gap:8px;padding:12px 0;border-bottom:1px solid var(--line)}
+.rt-edit-item:last-child{border-bottom:0}
 .rt-top{display:flex;align-items:center;gap:6px}
 .rt-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}
 .rt-f{display:flex;flex-direction:column;gap:4px}
 .rt-f .stepper{align-self:flex-start}
 .rt-chips{flex-wrap:wrap}
+.step-in{width:54px;border:0;background:transparent;text-align:center;font-weight:700;font-size:13px;font-variant-numeric:tabular-nums;color:var(--fg);padding:0}
+.step-in:focus{outline:none;background:var(--surface);box-shadow:inset 0 -2px 0 var(--accent)}
 
 /* Calendar */
 .cal-head{display:flex;align-items:center;gap:8px}
@@ -243,8 +246,6 @@ select.in{text-align:left;padding:10px;appearance:auto}
 
 /* Routines */
 .rt-items{display:flex;flex-direction:column;gap:4px;font-size:14px;color:var(--muted)}
-.rt-edit-item{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
-.rt-edit-item:last-child{border-bottom:0}
 .stepper{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:8px;overflow:hidden}
 .stepper button{border:0;background:var(--bg);width:30px;height:32px;font-weight:700}
 .stepper span{min-width:58px;text-align:center;font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;padding:0 4px}
@@ -621,6 +622,8 @@ function stopHold(log){clearInterval(holdI);$("#hold").hidden=true;if(!log||!hol
 const work=e=>(e.sets||[]).filter(s=>!s.wu);
 const defaultIncKg=()=>S.unit==="lb"?5*LB:2.5;
 const INC_OPTS=()=>S.unit==="lb"?[2.5,5,10].map(v=>v*LB):[1,1.25,2.5,5];
+const INC_STEP=()=>S.unit=="lb"?2.5:1.25;
+function stepInc(curKg,dir){const st=INC_STEP();let d=Math.round((S.unit==="lb"?curKg/LB:curKg)/st)*st+dir*st;d=Math.max(st,Math.min(S.unit==="lb"?100:50,d));return S.unit==="lb"?d*LB:d}
 const barKg=()=>S.unit==="lb"?45*LB:20;
 function roundLoad(kg){const step=S.unit==="lb"?5*LB:2.5;return Math.round(kg/step)*step}
 function genWarmups(workKg){const bar=barKg();const out=[];if(!workKg||workKg<=bar*1.15)return out;
@@ -867,7 +870,7 @@ function liftBlock(e,i){const def=exById(e.exId);const last=lastEntry(e.exId);co
       <span class="stepper"><button data-act="prog-step" data-ei="${i}" data-k="min" data-v="-1" aria-label="Lower minimum">−</button><span>${pg?pg.min:"–"} min</span><button data-act="prog-step" data-ei="${i}" data-k="min" data-v="1" aria-label="Raise minimum">+</button></span>
       <span class="stepper"><button data-act="prog-step" data-ei="${i}" data-k="max" data-v="-1" aria-label="Lower maximum">−</button><span>${pg?pg.max:"–"} max</span><button data-act="prog-step" data-ei="${i}" data-k="max" data-v="1" aria-label="Raise maximum">+</button></span>
       ${pg?`<button class="btn sm ghost" data-act="prog-off" data-ei="${i}">Turn off</button>`:""}</div>
-      <div class="label">Weight jump after you top the range</div><div class="chips">${incs.map(v=>`<button class="chip" data-act="prog-inc" data-ei="${i}" data-v="${v}" aria-pressed="${!!pg&&Math.abs((pg.inc||defaultIncKg())-v)<1e-6}">+${wOut(v)} ${S.unit}</button>`).join("")}</div>`}
+      <div class="label">Weight jump after you top the range (${S.unit})</div><span class="stepper" style="align-self:flex-start"><button data-act="prog-incstep" data-ei="${i}" data-v="-1" aria-label="Smaller weight jump">−</button><input class="step-in" id="proginc-${e.uid}" data-f="proginc" data-ei="${i}" inputmode="decimal" value="${wOut(pg&&pg.inc||defaultIncKg())}" aria-label="Weight jump in ${S.unit}"><button data-act="prog-incstep" data-ei="${i}" data-v="1" aria-label="Bigger weight jump">+</button></span>`}
     <div class="muted" style="font-size:12px">Saved for ${esc(e.name)} from now on.</div></div>`:"";
   const lastLine=last?`<div class="lastline"><span class="label">Last time${last.same?" in this routine":""} · ${fmtShort(last.w.date)}</span><span>${esc(entrySummary(last.e))}</span></div>`:"";
   const goal=goalText(e);const gk=e.goal&&e.goal.kind;
@@ -1044,8 +1047,9 @@ function routineBody(d){const last=d.items.length-1;
        ${tm?`<div class="rt-f"><span class="label">Hold</span><span class="stepper"><button data-act="rt-step" data-i="${i}" data-k="reps" data-v="-1" aria-label="Shorter hold">−</button><span>${clock(it.reps)}</span><button data-act="rt-step" data-i="${i}" data-k="reps" data-v="1" aria-label="Longer hold">+</button></span></div>`
          :`<div class="rt-f"><span class="label">Min reps</span><span class="stepper"><button data-act="rt-step" data-i="${i}" data-k="repMin" data-v="-1" aria-label="Lower minimum reps">−</button><span>${it.repMin}</span><button data-act="rt-step" data-i="${i}" data-k="repMin" data-v="1" aria-label="Raise minimum reps">+</button></span></div>
            <div class="rt-f"><span class="label">Max reps</span><span class="stepper"><button data-act="rt-step" data-i="${i}" data-k="repMax" data-v="-1" aria-label="Lower maximum reps">−</button><span>${it.repMax}</span><button data-act="rt-step" data-i="${i}" data-k="repMax" data-v="1" aria-label="Raise maximum reps">+</button></span></div>`}
+       ${tm?"":`<div class="rt-f"><span class="label">Weight jump (${S.unit})</span><span class="stepper"><button data-act="rt-incstep" data-i="${i}" data-v="-1" aria-label="Smaller weight jump">−</button><input class="step-in" id="rtinc-${i}" data-f="rtinc" data-i="${i}" inputmode="decimal" value="${wOut(it.inc||defaultIncKg())}" aria-label="Weight jump in ${S.unit}"><button data-act="rt-incstep" data-i="${i}" data-v="1" aria-label="Bigger weight jump">+</button></span></div>`}
        <div class="rt-f"><span class="label">Rest</span><span class="stepper"><button data-act="rt-step" data-i="${i}" data-k="rest" data-v="-1" aria-label="Shorter rest">−</button><span>${clock(it.rest||restFor(it))}</span><button data-act="rt-step" data-i="${i}" data-k="rest" data-v="1" aria-label="Longer rest">+</button></span></div></div>`:""}
-     <div class="chips rt-chips">${lift&&!tm?`<button class="chip" data-act="rt-inc" data-i="${i}">+${wOut(it.inc||defaultIncKg())} ${S.unit} when range is hit</button><button class="chip" data-act="rt-tog" data-k="warmup" data-i="${i}" aria-pressed="${!!it.warmup}">Warm-up sets</button>`:""}
+     <div class="chips rt-chips">${lift&&!tm?`<button class="chip" data-act="rt-tog" data-k="warmup" data-i="${i}" aria-pressed="${!!it.warmup}">Warm-up sets</button>`:""}
        ${i<last?`<button class="chip" data-act="rt-tog" data-k="ss" data-i="${i}" aria-pressed="${!!it.ss}">Superset with next</button>`:""}</div></div>`}).join(""):'<div class="muted">No exercises yet.</div>'}</div>
    <div class="muted" style="font-size:13px">Progression: hit the target reps on every set and the next session adds a rep. Top out the range and it adds weight and resets to the minimum.</div>
    <button class="btn block" data-act="open-picker" data-v="routine">+ Add exercise</button>`}
@@ -1129,6 +1133,7 @@ document.addEventListener("click",ev=>{const b=ev.target.closest("[data-act]");i
   case "prog-step":{const e=a.entries[ei];const k=b.dataset.k;const lr=S.lastRange||{min:8,max:12};
     if(!e.prog)e.prog={min:lr.min,max:lr.max,inc:defaultIncKg()};else{e.prog[k]=Math.max(1,Math.min(50,e.prog[k]+(+v)));if(e.prog.min>e.prog.max){if(k==="min")e.prog.max=e.prog.min;else e.prog.min=e.prog.max}}
     S.exProg=Object.assign({},S.exProg,{[e.exId]:Object.assign({},e.prog)});S.lastRange={min:e.prog.min,max:e.prog.max};replan(e);saveProfile();render();break}
+  case "prog-incstep":{const e=a.entries[ei];if(!e.prog){const lr=S.lastRange||{min:8,max:12};e.prog={min:lr.min,max:lr.max}}e.prog.inc=stepInc(e.prog.inc||defaultIncKg(),+v);S.exProg=Object.assign({},S.exProg,{[e.exId]:Object.assign({},e.prog)});replan(e);saveProfile();render();break}
   case "prog-inc":{const e=a.entries[ei];if(!e.prog){const lr=S.lastRange||{min:8,max:12};e.prog={min:lr.min,max:lr.max}}e.prog.inc=+v;S.exProg=Object.assign({},S.exProg,{[e.exId]:Object.assign({},e.prog)});replan(e);saveProfile();render();break}
   case "prog-off":{const e=a.entries[ei];e.prog=null;const ep=Object.assign({},S.exProg);delete ep[e.exId];S.exProg=ep;replan(e);saveProfile();render();break}
   case "toggle-wu":{const e=a.entries[ei];const s=e.sets[si];s.wu=!s.wu;if(s.wu){s.pr=false;s.prt=null}saveProfile();render();break}
@@ -1163,6 +1168,7 @@ document.addEventListener("click",ev=>{const b=ev.target.closest("[data-act]");i
     if(k==="rest"){it.rest=Math.max(15,Math.min(600,(it.rest||restFor(it))+(+v)*15));renderSheet();break}
     if(k==="repMin"||k==="repMax"){it[k]=Math.max(1,Math.min(50,(it[k]||8)+(+v)));if(it.repMin>it.repMax){if(k==="repMin")it.repMax=it.repMin;else it.repMin=it.repMax}it.reps=it.repMin;S.lastRange={min:it.repMin,max:it.repMax};renderSheet();break}
     const tm=k==="reps"&&isTimed(it);it[k]=Math.max(tm?5:1,Math.min(k==="sets"?10:tm?600:50,(it[k]||0)+(+v)*(tm?5:1)));renderSheet();break}
+  case "rt-incstep":{const it=S.routineDraft.items[+b.dataset.i];it.inc=stepInc(it.inc||defaultIncKg(),+v);renderSheet();break}
   case "rt-inc":{const it=S.routineDraft.items[+b.dataset.i];const o=INC_OPTS();const cur=it.inc||defaultIncKg();const ix=o.findIndex(x=>Math.abs(x-cur)<1e-6);it.inc=o[(ix+1)%o.length];renderSheet();break}
   case "rt-tog":{const it=S.routineDraft.items[+b.dataset.i];it[b.dataset.k]=!it[b.dataset.k];renderSheet();break}
   case "rt-up":{const i=+b.dataset.i;const it=S.routineDraft.items;[it[i-1],it[i]]=[it[i],it[i-1]];renderSheet();break}
@@ -1192,6 +1198,8 @@ document.addEventListener("input",ev=>{const t=ev.target;const f=t.dataset.f;if(
   case "cdist":a.entries[ei].cardio.dist=dIn(t.value);saveProfile();updPace(ei);break;
   case "cinc":{const n=parseFloat(t.value);a.entries[ei].cardio.incline=isNaN(n)?null:n;saveProfile();break}
   case "ctime":{const s=parseClock(t.value);if(s!=null||t.value===""){a.entries[ei].cardio.time=s;saveProfile();updPace(ei)}break}
+  case "rtinc":{const n=wIn(t.value);if(n&&n>0)S.routineDraft.items[+t.dataset.i].inc=n;break}
+  case "proginc":{const n=wIn(t.value);if(n&&n>0){const e=a.entries[ei];if(!e.prog){const lr=S.lastRange||{min:8,max:12};e.prog={min:lr.min,max:lr.max}}e.prog.inc=n;S.exProg=Object.assign({},S.exProg,{[e.exId]:Object.assign({},e.prog)});saveProfile()}break}
   case "platew":S.sheet.total=t.value;$("#plate-out").innerHTML=plateOut();break;
   case "pickq":S.sheet.q=t.value;$("#pick-list").innerHTML=pickerList(S.sheet);break;
   case "rtname":{S.routineDraft.name=t.value;if(S.rtErr){S.rtErr=null;const e=$("#rt-err");if(e)e.hidden=true}
@@ -1201,6 +1209,8 @@ document.addEventListener("change",ev=>{const t=ev.target;
   if(t.id==="imp-file"&&t.files&&t.files[0]){const r=new FileReader();r.onload=()=>importText(String(r.result||""));r.readAsText(t.files[0]);return}
   const f=t.dataset.f;
   if(f==="ctime"){const ei=+t.dataset.ei;const c=S.active.entries[ei].cardio;t.value=c.time?clock(c.time):""}
+  if(f==="rtinc"){renderSheet()}
+  if(f==="proginc"){const e=S.active&&S.active.entries[+t.dataset.ei];if(e){replan(e);render()}}
   if(f==="progex"){S.progEx=t.value;S.progMetric=null;render()}});
 function updPace(ei){const el=$("#pace-"+ei);if(el)el.innerHTML=paceHTML(S.active.entries[ei].cardio)}
 document.addEventListener("keydown",ev=>{if(ev.key==="Escape"&&S.sheet){S.sheet=null;renderSheet()}});
