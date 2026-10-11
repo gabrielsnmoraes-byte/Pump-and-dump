@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#232A33"/><stop offset="1" stop-color="#101318"/></linearGradient>
+    <pattern id="tape" width="96" height="96" patternUnits="userSpaceOnUse" patternTransform="rotate(-45)">
+      <rect width="96" height="96" fill="#101318"/><rect width="48" height="96" fill="#FF6A1A"/></pattern>
+    <clipPath id="sq"><rect width="1024" height="1024" rx="0"/></clipPath>
+  </defs>
+  <g clip-path="url(#sq)">
+    <rect width="1024" height="1024" fill="url(#bg)"/>
+    <rect y="846" width="1024" height="178" fill="url(#tape)"/>
+    <rect y="836" width="1024" height="14" fill="#FF6A1A"/>
+    <g transform="translate(0 -70)">
+    <!-- bending bar -->
+    <path d="M118 560 Q512 330 906 560" fill="none" stroke="#C9D0D8" stroke-width="30" stroke-linecap="round"/>
+    <!-- left plates (rotated to bar tangent) -->
+    <g transform="translate(248 497) rotate(-28)">
+      <rect x="-44" y="-200" width="70" height="400" rx="18" fill="#FF6A1A"/>
+      <rect x="-104" y="-150" width="52" height="300" rx="16" fill="#FF6A1A"/>
+      <rect x="34" y="-46" width="30" height="92" rx="8" fill="#C9D0D8"/>
+    </g>
+    <g transform="translate(776 497) rotate(28)">
+      <rect x="-26" y="-200" width="70" height="400" rx="18" fill="#FF6A1A"/>
+      <rect x="52" y="-150" width="52" height="300" rx="16" fill="#FF6A1A"/>
+      <rect x="-64" y="-46" width="30" height="92" rx="8" fill="#C9D0D8"/>
+    </g>
+    <!-- grip knurl -->
+    <path d="M420 440 Q512 420 604 440" fill="none" stroke="#8E97A3" stroke-width="30" stroke-dasharray="6 8"/>
+    </g>
+  </g>
+</svg>
