@@ -316,6 +316,17 @@ body:not(.authed) .tabs,body:not(.authed) .top .seg,body:not(.authed) .top .icon
 .sec-h{display:flex;align-items:center;gap:8px}
 .sec-h h2{flex:1}
 
+/* Exercise notes + edit mode */
+.xnote{display:flex;align-items:flex-start;gap:8px;width:100%;text-align:left;border:0;background:var(--surface-2);color:var(--fg);border-radius:10px;padding:9px 11px;margin:0 0 10px;font-size:14px;line-height:1.35;min-height:40px}
+.xnote svg{width:15px;height:15px;flex:none;margin-top:2px;color:var(--muted)}
+.xnote span{white-space:pre-wrap;overflow-wrap:anywhere}
+.note-ed{display:flex;flex-direction:column;gap:6px;margin:0 0 10px}
+.note-ed textarea{min-height:64px}
+.edit-banner{display:inline-flex;align-items:center;gap:6px;align-self:flex-start;background:var(--info-soft);color:var(--info);font-weight:700;font-size:13px;padding:6px 10px;border-radius:999px}
+.edit-banner svg{width:14px;height:14px}
+.edit-meta{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.edit-meta .in{text-align:left;padding:10px}
+
 /* ===================== Redesign v12 ===================== */
 /* Colour roles: orange = primary action + live states only; gold = records; green = done; blue = supersets. */
 :root{--gold:#A86B00;--gold-soft:#FFF1D1;--info:#1C6ED6;--info-soft:#E1EDFC;--row-done:#E3F4E6;--tap:44px}
@@ -538,7 +549,7 @@ body:not(.authed) .tabs,body:not(.authed) .top .seg,body:not(.authed) .top .icon
 <script>
 (function(){
 "use strict";
-const APP_VERSION="v12";const LB=0.45359237, MI=1.609344, LOCAL_KEY="ironbook-v1";
+const APP_VERSION="v13";const LB=0.45359237, MI=1.609344, LOCAL_KEY="ironbook-v1";
 const $=(s,r=document)=>r.querySelector(s);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
@@ -567,7 +578,7 @@ const TEMPLATES=[
 ];
 
 /* ---------- State ---------- */
-const S={exProg:{},lastRange:null,exRest:{},calMonth:null,calDay:null,ready:false,unit:"lb",dist:"km",rest:90,sound:true,customEx:[],routines:[],active:null,workouts:[],
+const S={exNotes:{},exProg:{},lastRange:null,exRest:{},calMonth:null,calDay:null,ready:false,unit:"lb",dist:"km",rest:90,sound:true,customEx:[],routines:[],active:null,workouts:[],
   tab:"log",sheet:null,routineDraft:null,confirm:null,progEx:null,progMetric:null,histLimit:30};
 const isTimed=e=>!!(e&&(e.timed||((exById(e.exId)||{}).timed)));
 const restFor=e=>(e&&(e.rest||(S.exRest||{})[e.exId]))||S.rest;
@@ -594,9 +605,9 @@ const e1rm=(w,r)=>!w||!r?0:(r===1?w:w*(1+r/30));
 const CFG=window.PD_CONFIG||{};
 let sb=null,user=null,saveT=null,flushing=null,flushAgain=false;
 let outbox={profile:false,up:{},del:{}};
-const DEFAULTS=()=>({exProg:{},lastRange:null,exRest:{},calMonth:null,calDay:null,ready:false,unit:"lb",dist:"km",rest:90,sound:true,customEx:[],routines:[],active:null,workouts:[],tab:"log",sheet:null,routineDraft:null,confirm:null,progEx:null,progMetric:null,histLimit:30,rtErr:null});
-function profileBody(){return {v:1,unit:S.unit,dist:S.dist,rest:S.rest,sound:S.sound,customEx:S.customEx,routines:S.routines,active:S.active,exRest:S.exRest||{},exProg:S.exProg||{},lastRange:S.lastRange||null,lastBackup:S.lastBackup||null}}
-function applyProfile(p){if(!p)return;p=JSON.parse(JSON.stringify(p));["unit","dist","rest","sound","lastBackup"].forEach(k=>{if(p[k]!=null)S[k]=p[k]});S.exRest=p.exRest&&typeof p.exRest==="object"?p.exRest:{};S.exProg=p.exProg&&typeof p.exProg==="object"?p.exProg:{};S.lastRange=p.lastRange||null;S.customEx=Array.isArray(p.customEx)?p.customEx:[];S.routines=Array.isArray(p.routines)?p.routines:[];S.active=p.active||null}
+const DEFAULTS=()=>({exNotes:{},exProg:{},lastRange:null,exRest:{},calMonth:null,calDay:null,ready:false,unit:"lb",dist:"km",rest:90,sound:true,customEx:[],routines:[],active:null,workouts:[],tab:"log",sheet:null,routineDraft:null,confirm:null,progEx:null,progMetric:null,histLimit:30,rtErr:null});
+function profileBody(){return {v:1,unit:S.unit,dist:S.dist,rest:S.rest,sound:S.sound,customEx:S.customEx,routines:S.routines,active:S.active,exRest:S.exRest||{},exProg:S.exProg||{},exNotes:S.exNotes||{},lastRange:S.lastRange||null,lastBackup:S.lastBackup||null}}
+function applyProfile(p){if(!p)return;p=JSON.parse(JSON.stringify(p));["unit","dist","rest","sound","lastBackup"].forEach(k=>{if(p[k]!=null)S[k]=p[k]});S.exRest=p.exRest&&typeof p.exRest==="object"?p.exRest:{};S.exProg=p.exProg&&typeof p.exProg==="object"?p.exProg:{};S.exNotes=p.exNotes&&typeof p.exNotes==="object"?p.exNotes:{};S.lastRange=p.lastRange||null;S.customEx=Array.isArray(p.customEx)?p.customEx:[];S.routines=Array.isArray(p.routines)?p.routines:[];S.active=p.active||null}
 const cacheKey=()=>"pd-cache-"+user.id, outKey=()=>"pd-outbox-"+user.id;
 function loadCache(){try{const o=JSON.parse(localStorage.getItem(cacheKey())||"null");if(o){applyProfile(o.profile);S.workouts=o.workouts||[]}}catch(e){}
   try{outbox=Object.assign({profile:false,up:{},del:{}},JSON.parse(localStorage.getItem(outKey())||"{}"))}catch(e){outbox={profile:false,up:{},del:{}}}}
@@ -747,6 +758,9 @@ async function finishWorkout(){
     const sets=(e.sets||[]).filter(s=>s.r>0).map(s=>Object.assign({w:s.w??null,r:s.r},fl(s)));
     return sets.length?Object.assign({exId:e.exId,name:e.name,kind:"lift",sets,planned:work(e).length},e.target?{target:e.target}:{},e.prog?{prog:e.prog}:{},e.ss?{ss:true}:{}):null}).filter(Boolean);
   if(!entries.length){toast("Log at least one set or cardio entry before finishing.");return}
+  if(a.editOf){const orig=S.workouts.find(x=>x.id===a.editOf)||{};const dur=a.durationSec||0;
+    const w={id:a.editOf,name:(a.name||"").trim()||orig.name||defaultName(),date:new Date(a.startedAt).toISOString(),startedAt:a.startedAt,endedAt:a.startedAt+dur*1000,durationSec:dur,notes:a.notes||"",routineId:a.routineId||null,entries,prs:orig.prs||0,prList:orig.prList||[]};
+    const ok=await saveWorkout(w);if(!ok)return;S.active=null;S.tab="history";S.confirm=null;saveProfile(true);render();toast("Changes saved");return}
   const end=Date.now();
   const w={id:a.id,name:(a.name||"").trim()||defaultName(),date:new Date(a.startedAt).toISOString(),startedAt:a.startedAt,endedAt:end,durationSec:Math.round((end-a.startedAt)/1000),notes:a.notes||"",routineId:a.routineId||null,entries,prs:prList.length,prList};
   const ok=await saveWorkout(w);if(!ok)return;
@@ -826,7 +840,7 @@ function cardioPRs(e,excludeId){const c=e.cardio||{};let maxD=0,minP=Infinity,n=
   if(!n)return [];const out=[];if(c.dist&&c.dist>maxD+1e-6)out.push(`Longest distance ${fmtD(c.dist)}`);
   if(c.dist&&c.time&&c.time/c.dist<minP-1e-6&&minP<Infinity)out.push(`Fastest pace ${paceStr(c.dist,c.time)}`);return out}
 
-function afterSet(e,s,quiet){const a=S.active;if(!a)return;const ei=a.entries.indexOf(e);const nxt=a.entries[ei+1];
+function afterSet(e,s,quiet){const a=S.active;if(!a||a.editOf)return;const ei=a.entries.indexOf(e);const nxt=a.entries[ei+1];
   if(e.ss&&nxt&&!s.wu){stopRest();if(!quiet)toast(`Superset · next up: ${nxt.name}`);setTimeout(()=>{const el=document.querySelectorAll(".ex")[ei+1];if(el)el.scrollIntoView({behavior:"smooth",block:"start"})},80);return}
   startRest(s.wu?Math.min(60,restFor(e)):restFor(e),e.name)}
 
@@ -834,12 +848,17 @@ function exMenu(e,i){if(S.menu!==e.uid)return "";const a=S.active;const tm=isTim
   const it=(act,label,extra="")=>`<button class="mi${extra}" data-act="${act}" data-ei="${i}">${label}</button>`;
   return `<div class="menu" role="menu">
     ${lift?it("ex-rest",`Rest${tm?"":" and rep range"} <span>${clock(restFor(e))}${e.prog?` · ${e.prog.min}–${e.prog.max} reps`:""}</span>`):""}
+    ${it("note-edit",(S.exNotes||{})[e.exId]?"Edit note":"Add note")}
     ${lift&&!tm&&!e.sets.some(s=>s.wu)?it("gen-wu","Add warm-up sets"):""}
     ${lift&&!tm?it("plates","Plate calculator"):""}
     ${!isLast?it("ss-toggle",e.ss?"Unlink superset":"Superset with next exercise"):""}
     ${lift&&e.sets.length>1?it("rm-set","Remove last set"):""}
     ${S.confirm==="rmex-"+e.uid?`<div class="mi-confirm"><span>Remove ${esc(e.name)}?</span><button class="btn sm" data-act="cancel-confirm">Keep</button><button class="btn sm danger solid" data-act="rm-ex" data-ei="${i}">Remove</button></div>`
       :`<button class="mi danger" data-act="ask-rmex" data-ei="${i}">Remove exercise</button>`}</div>`}
+function noteBlock(e,i){const note=(S.exNotes||{})[e.exId]||"";
+  if(S.noteEdit===e.uid)return `<div class="note-ed"><textarea class="in" id="note-${e.uid}" data-f="exnote" data-ei="${i}" rows="2" placeholder="e.g. Seat height 4, use the left rack, elbows tucked">${esc(note)}</textarea>
+    <div class="row"><span class="muted grow" style="font-size:12px">Shows every time you do ${esc(e.name)}.</span><button class="btn sm" data-act="note-done" data-ei="${i}">Done</button></div></div>`;
+  return note?`<button class="xnote" data-act="note-edit" data-ei="${i}" aria-label="Edit note for ${esc(e.name)}">${ICON.note}<span>${esc(note)}</span></button>`:""}
 function shortGoal(e){const g=e.goal;if(!g||!e.prog)return "";const n=work(e).length;const wt=g.w?` @ ${wOut(g.w)}`:"";
   return {first:`Aim ${e.prog.min}–${e.prog.max} reps`,rep:`↑ Goal ${n} × ${g.r}${wt}`,weight:`⬆ Weight up ${n} × ${g.r}${wt}`,repeat:`↻ Repeat ${n} × ${g.r}${wt}`}[g.kind]}
 
@@ -919,7 +938,7 @@ function mobilityFor(entries){const t={};Object.keys(MUSCLE_NAMES).forEach(k=>t[
   const cats=Object.keys(sc).filter(k=>sc[k]>0).sort((a,b)=>sc[b]-sc[a]);if(!cats.length)return null;
   const drills=cats.length===1?MOB[cats[0]].slice(0,3):MOB[cats[0]].slice(0,2).concat(MOB[cats[1]].slice(0,1));
   return {cats:cats.slice(0,2),drills}}
-function mobilityCard(a){if(a.mobDone||!a.entries.length)return "";const m=mobilityFor(a.entries);if(!m)return "";
+function mobilityCard(a){if(a.editOf||a.mobDone||!a.entries.length)return "";const m=mobilityFor(a.entries);if(!m)return "";
   return `<div class="mob"><div class="row"><span class="label grow">Mobility warm-up · about 5 min</span><button class="btn sm ghost" data-act="mob-done">Done</button></div>
     <div class="muted" style="font-size:13px">For ${m.cats.map(c=>MOB_LABEL[c]).join(" and ")}:</div>
     <ol class="mob-list">${m.drills.map(([n,d])=>`<li><span>${esc(n)}</span><b>${esc(d)}</b></li>`).join("")}</ol></div>`}
@@ -979,6 +998,7 @@ async function shareSummary(id){const w=S.workouts.find(x=>x.id===id);if(!w)retu
 
 /* ---------- Rendering ---------- */
 const ICON={
+ note:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>',
  more:'<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>',
  chev:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>',
  link:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>',
@@ -1016,19 +1036,22 @@ function renderLog(){
       <button class="btn primary block" data-act="start-empty">Start empty workout</button>
       <div class="label">From a routine</div>${rts}</div></div>
       ${quickWeek()}`}
+  const ed=!!a.editOf;const sd=new Date(a.startedAt);const ymd=`${sd.getFullYear()}-${String(sd.getMonth()+1).padStart(2,"0")}-${String(sd.getDate()).padStart(2,"0")}`;
   return `<div class="active-head">
-      <div class="row"><span class="clock"><i class="dot"></i><span id="clock">0:00</span></span><span class="grow"></span>
-        <button class="btn sm" data-act="rest-start">Rest ${clock(S.rest)}</button></div>
+      ${ed?`<div class="edit-banner">${ICON.note}Editing a saved workout</div>`:`<div class="row"><span class="clock"><i class="dot"></i><span id="clock">0:00</span></span><span class="grow"></span>
+        <button class="btn sm" data-act="rest-start">Rest ${clock(S.rest)}</button></div>`}
       <input class="wname" id="wname" data-f="wname" value="${esc(a.name)}" aria-label="Workout name">
-      <div class="muted" style="font-size:13px">Started ${new Date(a.startedAt).toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"})} · ${fmtDay(a.startedAt)}</div>
+      ${ed?`<div class="edit-meta"><label class="field"><span class="label">Date</span><input class="in" type="date" id="edate" data-f="edate" value="${ymd}"></label>
+        <label class="field"><span class="label">Duration (min)</span><input class="in" id="edur" data-f="edur" inputmode="numeric" value="${Math.round((a.durationSec||0)/60)}"></label></div>`
+      :`<div class="muted" style="font-size:13px">Started ${sd.toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"})} · ${fmtDay(a.startedAt)}</div>`}
     </div>
     ${mobilityCard(a)}
     ${a.entries.length?a.entries.map((e,i)=>(e.kind==="cardio"?cardioBlock(e,i):liftBlock(e,i))+(e.ss&&a.entries[i+1]?`<div class="ss-link">${ICON.link}Superset · go straight to the next exercise</div>`:"")).join(""):'<div class="empty"><strong>No exercises yet</strong>Add a lift or a cardio session to start logging.</div>'}
     <button class="btn block" data-act="open-picker" data-v="active">+ Add exercise</button>
     <div class="field"><label class="label" for="wnotes">Notes</label><textarea class="in" id="wnotes" data-f="wnotes" placeholder="How did it feel? Sleep, energy, anything to remember next time">${esc(a.notes)}</textarea></div>
-    <button class="btn primary block" data-act="finish">Finish and save workout</button>
-    ${S.confirm==="discard"?`<div class="confirm"><span>Discard this workout? Nothing will be saved.</span><button class="btn sm" data-act="cancel-confirm">Keep it</button><button class="btn sm danger solid" data-act="discard">Discard</button></div>`
-      :`<button class="btn ghost danger" data-act="ask" data-v="discard">Discard workout</button>`}`}
+    <button class="btn primary block" data-act="finish">${ed?"Save changes":"Finish and save workout"}</button>
+    ${S.confirm==="discard"?`<div class="confirm"><span>${ed?"Drop your changes? The saved workout stays as it was.":"Discard this workout? Nothing will be saved."}</span><button class="btn sm" data-act="cancel-confirm">Keep editing</button><button class="btn sm danger solid" data-act="discard">${ed?"Drop changes":"Discard"}</button></div>`
+      :`<button class="btn ghost danger" data-act="ask" data-v="discard">${ed?"Cancel editing":"Discard workout"}</button>`}`}
 function nextRoutine(){if(!S.routines.length)return null;const ids=S.routines.map(r=>r.id);const lw=sortedWorkouts().find(w=>w.routineId&&ids.includes(w.routineId));
   if(!lw)return S.routines[0];return S.routines[(ids.indexOf(lw.routineId)+1)%S.routines.length]}
 function weekStreak(){const wk=new Set(S.workouts.map(w=>weekStart(w.date).getTime()));let c=weekStart(new Date()),n=0;if(!wk.has(c.getTime()))c.setDate(c.getDate()-7);while(wk.has(c.getTime())){n++;c.setDate(c.getDate()-7)}return n}
@@ -1081,7 +1104,7 @@ function liftBlock(e,i){const def=exById(e.exId);const last=lastEntry(e.exId);co
   return `<section class="ex${e.ss?" ss-top":""}${i>0&&a.entries[i-1].ss?" ss-bot":""}"><div class="ex-head"><div class="grow"><h3>${esc(e.name)}</h3><div class="grp">${esc(def?def.group:"")}${tm?" · timed hold":""}${e.ss?" · superset":""}</div></div>
     <button class="rest-chip" data-act="ex-rest" data-ei="${i}" aria-expanded="${S.restPick===e.uid}" aria-label="Rest and rep range for ${esc(e.name)}">${ICON.timer}${clock(restFor(e))}</button>
     <button class="icon-btn more" data-act="ex-menu" data-ei="${i}" aria-expanded="${S.menu===e.uid}" aria-label="More options for ${esc(e.name)}">${ICON.more}</button></div>
-    ${exMenu(e,i)}${panel}${info}
+    ${exMenu(e,i)}${panel}${info}${noteBlock(e,i)}
     <div class="sets"><div class="shead"><span>Set</span><span class="l">Previous</span><span>${tm?"+"+S.unit:S.unit}</span><span>${tm?"Sec":"Reps"}</span><span></span></div>${rows}</div>
     <div class="ex-foot"><button class="btn sm add-set" data-act="add-set" data-ei="${i}">+ Add set</button>${tm?`<button class="btn sm" data-act="hold" data-ei="${i}">Hold timer</button>`:""}</div></section>`}
 function cardioBlock(e,i){const def=exById(e.exId)||{indoor:"Indoor",incline:true};const c=e.cardio;
@@ -1089,7 +1112,7 @@ function cardioBlock(e,i){const def=exById(e.exId)||{indoor:"Indoor",incline:tru
   const showIncl=def.incline&&c.mode!=="outdoor";const last=lastEntry(e.exId);
   const a=S.active;return `<section class="ex${e.ss?" ss-top":""}${i>0&&a.entries[i-1].ss?" ss-bot":""}"><div class="ex-head"><div class="grow"><h3>${esc(e.name)}</h3><div class="grp">Cardio${e.ss?" · superset":""}</div></div>
     <button class="icon-btn more" data-act="ex-menu" data-ei="${i}" aria-expanded="${S.menu===e.uid}" aria-label="More options for ${esc(e.name)}">${ICON.more}</button></div>
-    ${exMenu(e,i)}${last?`<div class="info"><span>Last: ${esc(entrySummary(last.e))}</span></div>`:""}
+    ${exMenu(e,i)}${last?`<div class="info"><span>Last: ${esc(entrySummary(last.e))}</span></div>`:""}${noteBlock(e,i)}
     <div class="stack" style="gap:10px">${modes}
     <div class="cardio-grid">
       <div class="field"><label class="label" for="cd-${e.uid}">Distance (${S.dist})</label><input class="in" id="cd-${e.uid}" inputmode="decimal" data-f="cdist" data-ei="${i}" value="${dOut(c.dist)}" placeholder="0.0"></div>
@@ -1130,7 +1153,7 @@ function renderHistory(){let ws=sortedWorkouts();
       <div class="lines">${(w.entries||[]).map(e=>`<div class="line"><span class="n">${esc(e.name)}</span><span class="v">${esc(entrySummary(e))}</span></div>`).join("")}</div>
       ${w.notes?`<div class="note">${esc(w.notes)}</div>`:""}
       ${S.confirm==="del-"+w.id?`<div class="confirm"><span>Delete this workout for good?</span><button class="btn sm" data-act="cancel-confirm">Cancel</button><button class="btn sm danger solid" data-act="del-w" data-id="${w.id}">Delete</button></div>`
-       :`<div class="row"><button class="btn sm" data-act="repeat" data-id="${w.id}">Repeat</button><button class="btn sm" data-act="summary" data-id="${w.id}">Share</button><span class="grow"></span><button class="btn sm ghost danger" data-act="ask" data-v="del-${w.id}">Delete</button></div>`}
+       :`<div class="row"><button class="btn sm" data-act="edit-w" data-id="${w.id}">Edit</button><button class="btn sm" data-act="repeat" data-id="${w.id}">Repeat</button><button class="btn sm" data-act="summary" data-id="${w.id}">Share</button><span class="grow"></span><button class="btn sm ghost danger" data-act="ask" data-v="del-${w.id}">Delete</button></div>`}
     </article>`});
   if(ws.length>S.histLimit)out+=`<button class="btn block" data-act="more">Show older workouts</button>`;
   return out}
@@ -1317,6 +1340,11 @@ document.addEventListener("click",ev=>{const b=ev.target.closest("[data-act]");i
       if(it.kind==="cardio")pf={rid:r.id};else if(isTimed(it))pf={sets:it.sets,reps:it.reps,rid:r.id};
       else pf={sets:it.sets,prog:{min:it.repMin??it.reps??8,max:it.repMax??it.reps??12,inc:it.inc||defaultIncKg()},warmup:!!it.warmup,rid:r.id};
       const ne=newEntry(ex,pf);if(it.rest&&it.kind!=="cardio")ne.rest=it.rest;if(it.ss)ne.ss=true;return ne}),r.id);break}
+  case "edit-w":{const w=S.workouts.find(x=>x.id===b.dataset.id);if(!w)break;
+    if(S.active){S.tab="log";render();toast(S.active.editOf?"Save or cancel the workout you're editing first.":"Finish or discard your current workout first.");break}
+    S.active={id:w.id,editOf:w.id,name:w.name,startedAt:new Date(w.date).getTime(),durationSec:w.durationSec||0,routineId:w.routineId||null,notes:w.notes||"",mobDone:true,
+      entries:(w.entries||[]).map(e=>{const n=JSON.parse(JSON.stringify(e));n.uid=uid();if(n.sets)n.sets.forEach(x=>x.done=true);return n})};
+    S.tab="log";S.confirm=null;saveProfile(true);render();window.scrollTo(0,0);break}
   case "repeat":{const w=S.workouts.find(x=>x.id===b.dataset.id);if(!w)break;if(S.active){S.tab="log";render();toast("Finish or discard the current workout first.");break}
     startWorkout(w.name,(w.entries||[]).map(e=>{const ex=exById(e.exId)||{id:e.exId,name:e.name,kind:e.kind};
       if(e.kind==="cardio")return newEntry(ex,{cardio:{mode:e.cardio&&e.cardio.mode,incline:e.cardio&&e.cardio.incline}});
@@ -1337,12 +1365,14 @@ document.addEventListener("click",ev=>{const b=ev.target.closest("[data-act]");i
   case "done":{const e=a.entries[ei];const s=e.sets[si];
     if(!s.done){const tm=isTimed(e);const k=tm?"t":"r";const wi=work(e).indexOf(s);const last=lastEntry(e.exId);const ps=!s.wu&&last?work(last.e)[wi]:null;
       if(s[k]==null||s[k]===""){const fill=!tm&&s.tr?s.tr:(ps&&ps[k]);if(fill)s[k]=fill;else{toast(tm?"Enter seconds for this set first.":"Enter reps for this set first.");break}}
-      if(s.w==null&&ps&&ps.w)s.w=ps.w;s.done=true;S.justDone=e.uid+":"+si;setTimeout(()=>{S.justDone=null},400);try{navigator.vibrate&&navigator.vibrate(12)}catch(_){};const prt=s.wu?null:checkPR(e,s);s.pr=!!prt;s.prt=prt||null;saveProfile();render();
+      if(s.w==null&&ps&&ps.w)s.w=ps.w;s.done=true;S.justDone=e.uid+":"+si;setTimeout(()=>{S.justDone=null},400);try{navigator.vibrate&&navigator.vibrate(12)}catch(_){};const prt=s.wu||a.editOf?null:checkPR(e,s);if(!a.editOf){s.pr=!!prt;s.prt=prt||null}saveProfile();render();
       if(prt)celebrate(e.name,prt);afterSet(e,s,!!prt)}
     else{s.done=false;s.pr=false;s.prt=null;saveProfile();render()}break}
   case "cmode":a.entries[ei].cardio.mode=v;saveProfile();render();break;
   case "rest-start":startRest();break;
   case "ex-rest":{const e=a.entries[ei];S.menu=null;S.restPick=S.restPick===e.uid?null:e.uid;render();break}
+  case "note-edit":{const e=a.entries[ei];S.menu=null;S.noteEdit=e.uid;render();setTimeout(()=>{const t=document.getElementById("note-"+e.uid);if(t){t.focus();t.setSelectionRange(t.value.length,t.value.length)}},40);break}
+  case "note-done":S.noteEdit=null;saveProfile();render();break;
   case "ex-menu":{const e=a.entries[ei];S.menu=S.menu===e.uid?null:e.uid;S.confirm=null;render();break}
   case "ask-rmex":{const e=a.entries[ei];S.confirm="rmex-"+e.uid;render();break}
   case "del-set":{const e=a.entries[ei];if(e.sets.length<=1){toast("An exercise needs at least one set. Use ⋯ to remove the exercise.");render();break}e.sets.splice(si,1);saveProfile();render();break}
@@ -1372,7 +1402,7 @@ document.addEventListener("click",ev=>{const b=ev.target.closest("[data-act]");i
   case "finish":finishWorkout();break;
   case "ask":S.confirm=v;render();break;
   case "cancel-confirm":S.confirm=null;render();break;
-  case "discard":S.active=null;S.confirm=null;stopRest();stopHold(false);saveProfile(true);render();toast("Workout discarded");break;
+  case "discard":{const ed=S.active&&S.active.editOf;S.active=null;S.confirm=null;stopRest();stopHold(false);saveProfile(true);if(ed)S.tab="history";render();toast(ed?"Changes dropped":"Workout discarded");break}
   case "del-w":deleteWorkout(b.dataset.id).then(()=>{S.confirm=null;render();toast("Workout deleted")});break;
   case "cal-nav":{const [y,m]=S.calMonth.split("-").map(Number);const d=new Date(y,m+(+v),1);S.calMonth=d.getFullYear()+"-"+d.getMonth();S.calDay=null;render();break}
   case "cal-day":S.calDay=S.calDay===v?null:v;render();break;
@@ -1413,6 +1443,9 @@ document.addEventListener("input",ev=>{const t=ev.target;const f=t.dataset.f;if(
   case "w":a.entries[ei].sets[si].w=wIn(t.value);saveProfile();break;
   case "r":{const n=parseInt(t.value,10);a.entries[ei].sets[si].r=isNaN(n)?null:n;saveProfile();break}
   case "t":{const n=parseInt(t.value,10);a.entries[ei].sets[si].t=isNaN(n)?null:n;saveProfile();break}
+  case "exnote":{const e=a.entries[ei];const v=t.value.slice(0,300);const n=Object.assign({},S.exNotes);if(v.trim())n[e.exId]=v;else delete n[e.exId];S.exNotes=n;saveProfile();break}
+  case "edate":{if(t.value){const o=new Date(a.startedAt);const d=new Date(t.value+"T00:00:00");d.setHours(o.getHours(),o.getMinutes());a.startedAt=d.getTime();saveProfile()}break}
+  case "edur":{const n=parseInt(t.value,10);if(!isNaN(n)&&n>=0){a.durationSec=n*60;saveProfile()}break}
   case "wname":a.name=t.value;saveProfile();break;
   case "wnotes":a.notes=t.value;saveProfile();break;
   case "cdist":a.entries[ei].cardio.dist=dIn(t.value);saveProfile();updPace(ei);break;
