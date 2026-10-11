@@ -820,7 +820,13 @@ function renderTabs(){const t=[["log","Log"],["history","History"],["progress","
 function render(){if(!user){if(S.auth)renderAuth();return}renderTabs();
   if(!S.ready){$("#view").innerHTML='<div class="loading">Loading your log…</div>';return}
   const v={log:renderLog,history:renderHistory,progress:renderProgress,routines:renderRoutines}[S.tab]();
-  $("#view").innerHTML=`<div class="stack">${v}</div>`;renderSheet();tickClock()}
+  const y=window.scrollY;$("#view").innerHTML=`<div class="stack">${v}</div>`;
+  const an=anchor;anchor=null;let el=null;if(an&&an.idx>=0)el=document.querySelectorAll("#view "+an.sel)[an.idx];
+  if(el)window.scrollBy(0,el.getBoundingClientRect().top-an.top);else if(Math.abs(window.scrollY-y)>1)window.scrollTo(0,y);
+  renderSheet();tickClock()}
+let anchor=null;
+function setAnchor(target){anchor=null;if(!target||target.closest("#sheet"))return;const sel="section.ex, article.card, .card";const sec=target.closest(sel);if(!sec)return;
+  const list=[...document.querySelectorAll("#view section.ex, #view article.card, #view .card")];anchor={sel,idx:list.indexOf(sec),top:sec.getBoundingClientRect().top}}
 
 function renderLog(){
   const a=S.active;
@@ -1016,14 +1022,15 @@ function renderRoutines(){
   return out}
 
 /* ---------- Sheets ---------- */
-function renderSheet(){const el=$("#sheet");const sh=S.sheet;if(!sh){el.innerHTML="";return}
+function renderSheet(){const el=$("#sheet");const sh=S.sheet;if(!sh){el.innerHTML="";el.dataset.type="";return}
+  const prevB=$("#sheet-b"),key=sh.type+(sh.target||""),keep=prevB&&el.dataset.type===key?prevB.scrollTop:0;
   let title="",body="",foot="";
   if(sh.type==="picker"){title="Add exercise";body=pickerBody(sh)}
   else if(sh.type==="routine"){const d=S.routineDraft;title=d.isNew?"New routine":"Edit routine";body=routineBody(d);foot=routineFoot(d)}
   else if(sh.type==="settings"){title="Settings";body=settingsBody()}
   else if(sh.type==="plates"){title="Plate calculator";body=platesBody()}
   else if(sh.type==="summary"){const w=S.workouts.find(x=>x.id===sh.id);if(!w){S.sheet=null;el.innerHTML="";return}title="Workout complete";body=summaryBody(w)}
-  el.innerHTML=`<div class="sheet-bg" data-act="close-sheet-bg"><div class="sheet" role="dialog" aria-modal="true" aria-label="${title}"><div class="sheet-h"><h2>${title}</h2><button class="icon-btn" data-act="close-sheet" aria-label="Close">${ICON.x}</button></div><div class="sheet-b" id="sheet-b">${body}</div>${foot}</div></div>`}
+  el.innerHTML=`<div class="sheet-bg" data-act="close-sheet-bg"><div class="sheet" role="dialog" aria-modal="true" aria-label="${title}"><div class="sheet-h"><h2>${title}</h2><button class="icon-btn" data-act="close-sheet" aria-label="Close">${ICON.x}</button></div><div class="sheet-b" id="sheet-b">${body}</div>${foot}</div></div>`;el.dataset.type=key;if(keep){const nb=$("#sheet-b");if(nb)nb.scrollTop=keep}}
 function pickerBody(sh){
   if(sh.creating)return `<div class="field"><label class="label" for="cx-name">Exercise name</label><input class="in" id="cx-name" placeholder="e.g. Landmine Press"></div>
     <div class="field"><span class="label">Type</span><div class="seg" role="group"><button data-act="cx-kind" data-v="lift" aria-pressed="${sh.cxKind==="lift"||!sh.cxKind}">Reps</button><button data-act="cx-kind" data-v="timed" aria-pressed="${sh.cxKind==="timed"}">Timed hold</button><button data-act="cx-kind" data-v="cardio" aria-pressed="${sh.cxKind==="cardio"}">Cardio</button></div></div>
@@ -1078,7 +1085,7 @@ function liveClock(){const a=S.active;const el=$("#clock");if(a&&el)el.textConte
 function tickClock(){liveClock()}
 setInterval(liveClock,1000);
 
-document.addEventListener("click",ev=>{const b=ev.target.closest("[data-act]");if(!b)return;const act=b.dataset.act,v=b.dataset.v;const a=S.active;
+document.addEventListener("click",ev=>{const b=ev.target.closest("[data-act]");if(!b)return;setAnchor(b);const act=b.dataset.act,v=b.dataset.v;const a=S.active;
   const ei=b.dataset.ei!=null?+b.dataset.ei:null,si=b.dataset.si!=null?+b.dataset.si:null;
   switch(act){
   case "auth-mode":S.auth={mode:v,email:S.auth&&S.auth.email,err:null,msg:null};renderAuth();break;
