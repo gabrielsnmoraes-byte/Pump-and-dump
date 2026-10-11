@@ -1,5 +1,5 @@
 // Offline support: the app shell works without signal; data syncs when back online.
-const CACHE = "pd-shell-v9";
+const CACHE = "pd-shell-v10";
 const SHELL = ["./", "index.html", "config.js", "manifest.webmanifest", "vendor/supabase.js",
   "icons/icon-180.png", "icons/icon-192.png", "icons/icon-512.png"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())); });

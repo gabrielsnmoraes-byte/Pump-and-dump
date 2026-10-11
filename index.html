@@ -40,6 +40,9 @@ html,body{background:var(--bg);color:var(--fg)}
 body{font-family:var(--font-body);font-size:15px;line-height:1.45;-webkit-tap-highlight-color:transparent}
 *{box-sizing:border-box}
 button,input,select,textarea{font:inherit;color:inherit}
+input,select,textarea{font-size:16px!important}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+html,body{overflow-x:hidden}
 button{cursor:pointer}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .wrap{max-width:640px;margin:0 auto;padding-inline:16px;padding-block:12px 170px}
@@ -189,7 +192,7 @@ textarea.in{text-align:left;min-height:72px;resize:vertical;padding:10px;font-we
 .rt-f{display:flex;flex-direction:column;gap:4px}
 .rt-f .stepper{align-self:flex-start}
 .rt-chips{flex-wrap:wrap}
-.step-in{width:54px;border:0;background:transparent;text-align:center;font-weight:700;font-size:13px;font-variant-numeric:tabular-nums;color:var(--fg);padding:0}
+.step-in{width:58px;border:0;background:transparent;text-align:center;font-weight:700;font-size:13px;font-variant-numeric:tabular-nums;color:var(--fg);padding:0}
 .step-in:focus{outline:none;background:var(--surface);box-shadow:inset 0 -2px 0 var(--accent)}
 
 /* Calendar */
@@ -286,8 +289,8 @@ body:not(.authed) .tabs,body:not(.authed) .top .seg,body:not(.authed) .top .icon
 .rest.done .rest-in{background:var(--good);color:#fff}
 
 /* Sheet */
-.sheet-bg{position:fixed;inset:0;background:rgba(10,12,15,.5);z-index:40;display:flex;align-items:flex-end;justify-content:center}
-.sheet{background:var(--surface);width:100%;max-width:640px;max-height:88vh;max-height:88dvh;border-radius:16px 16px 0 0;display:flex;flex-direction:column;padding-bottom:env(safe-area-inset-bottom,0px)}
+.sheet-bg{position:fixed;inset:0;height:100dvh;background:rgba(10,12,15,.5);z-index:40;display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:var(--surface);width:100%;max-width:640px;max-height:calc(100vh - 24px);max-height:calc(100dvh - 24px - env(safe-area-inset-top,0px));border-radius:16px 16px 0 0;display:flex;flex-direction:column;padding-bottom:env(safe-area-inset-bottom,0px)}
 .sheet-h{display:flex;align-items:center;gap:8px;padding:14px 16px 8px}
 .sheet-h h2{flex:1;font-size:24px}
 .sheet-f{border-top:1px solid var(--line);padding:10px 16px 14px;display:flex;flex-direction:column;gap:8px;background:var(--surface)}
@@ -378,7 +381,7 @@ body:not(.authed) .tabs,body:not(.authed) .top .seg,body:not(.authed) .top .icon
 <script>
 (function(){
 "use strict";
-const APP_VERSION="v9";const LB=0.45359237, MI=1.609344, LOCAL_KEY="ironbook-v1";
+const APP_VERSION="v10";const LB=0.45359237, MI=1.609344, LOCAL_KEY="ironbook-v1";
 const $=(s,r=document)=>r.querySelector(s);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
