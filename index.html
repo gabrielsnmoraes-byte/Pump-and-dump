@@ -316,6 +316,31 @@ body:not(.authed) .tabs,body:not(.authed) .top .seg,body:not(.authed) .top .icon
 .sec-h{display:flex;align-items:center;gap:8px}
 .sec-h h2{flex:1}
 
+/* Picker: multi-select + preview */
+.sheet[data-type="picker"]{min-height:min(78dvh,680px)}
+.pk{display:flex;align-items:center;gap:6px;border-bottom:1px solid var(--line)}
+.pk .ex-item{flex:1;min-width:0;border-bottom:0;min-height:56px;gap:12px}
+.tick{width:26px;height:26px;border-radius:50%;border:2px solid var(--line);display:grid;place-items:center;flex:none;color:transparent;transition:background-color .15s,border-color .15s}
+.tick svg{width:15px;height:15px}
+.pk.sel .tick{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
+.pk.sel .nm{color:var(--fg)}
+.info-btn{width:36px;height:36px;flex:none;border-radius:50%;border:1.5px solid var(--line);background:transparent;color:var(--muted);font-weight:700;font-family:Georgia,serif;font-style:italic}
+.info-btn[aria-expanded="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.exinfo{display:flex;gap:12px;align-items:flex-start;background:var(--bg);border-radius:12px;padding:12px;margin:6px 0 10px}
+.body-mini{width:118px;flex:none;height:auto}
+.body-mini .mb{fill:var(--surface-2)}.body-mini text{display:none}
+.ei-txt{display:flex;flex-direction:column;gap:6px;min-width:0;font-size:14px}
+.ei-txt .label{margin-right:4px}
+.ei-cue{margin:0;line-height:1.45}
+.ei-note{margin:0;display:flex;gap:6px;color:var(--muted);font-size:13px}.ei-note svg{width:14px;height:14px;flex:none;margin-top:2px}
+.btn.demo{align-self:flex-start;text-decoration:none;color:var(--fg)}
+.btn.demo svg{width:14px;height:14px}
+.btn:disabled{opacity:.55;cursor:default}
+/* Drag to reorder */
+.rt-handle{width:36px;height:var(--tap);display:grid;place-items:center;color:var(--muted);touch-action:none;cursor:grab;flex:none;margin-left:-8px}
+.rt-handle svg{width:18px;height:18px}
+.rt-edit-item.dragging{background:var(--surface-2);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.25);margin:0 -10px;padding-inline:10px}
+
 /* Exercise notes + edit mode */
 .xnote{display:flex;align-items:flex-start;gap:8px;width:100%;text-align:left;border:0;background:var(--surface-2);color:var(--fg);border-radius:10px;padding:9px 11px;margin:0 0 10px;font-size:14px;line-height:1.35;min-height:40px}
 .xnote svg{width:15px;height:15px;flex:none;margin-top:2px;color:var(--muted)}
@@ -549,7 +574,7 @@ body:not(.authed) .tabs,body:not(.authed) .top .seg,body:not(.authed) .top .icon
 <script>
 (function(){
 "use strict";
-const APP_VERSION="v13";const LB=0.45359237, MI=1.609344, LOCAL_KEY="ironbook-v1";
+const APP_VERSION="v14";const LB=0.45359237, MI=1.609344, LOCAL_KEY="ironbook-v1";
 const $=(s,r=document)=>r.querySelector(s);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
@@ -569,7 +594,169 @@ const CATALOG=[
  L("Hanging Leg Raise","Core"),L("Cable Crunch","Core"),L("Ab Wheel Rollout","Core"),L("Decline Sit-up","Core"),L("Russian Twist","Core"),L("Pallof Press","Core"),
  C("Run","Treadmill",true),C("Walk","Treadmill",true),C("Hike","Treadmill",true),C("Cycling","Stationary bike",false),C("Rowing Machine",null,false),C("Elliptical",null,false),C("Stair Climber",null,false),C("Swimming","Pool",false)
 ];
-const GROUPS=["All","Chest","Back","Legs","Shoulders","Arms","Core","Cardio","Custom"];
+/* ---------- Expanded exercise library ---------- */
+const MORE=[
+ // Chest
+ L("Smith Machine Bench Press","Chest"),L("Incline Machine Press","Chest"),L("Decline Dumbbell Press","Chest"),L("Floor Press","Chest"),
+ L("Cable Crossover","Chest"),L("Low-to-High Cable Fly","Chest"),L("Incline Dumbbell Fly","Chest"),L("Machine Fly","Chest"),
+ L("Svend Press","Chest"),L("Dumbbell Pullover","Chest"),L("Weighted Push-up","Chest"),L("Incline Push-up","Chest"),
+ L("Decline Push-up","Chest"),L("Diamond Push-up","Chest"),L("Weighted Dip","Chest"),
+ // Back
+ L("Pendlay Row","Back"),L("Seal Row","Back"),L("Meadows Row","Back"),L("Single-Arm Cable Row","Back"),L("Machine Row","Back"),
+ L("Inverted Row","Back"),L("Neutral-Grip Pull-up","Back"),L("Weighted Pull-up","Back"),L("Assisted Pull-up","Back"),
+ L("Close-Grip Lat Pulldown","Back"),L("Single-Arm Lat Pulldown","Back"),L("Cable Pullover","Back"),L("Sumo Deadlift","Back"),
+ L("Trap Bar Deadlift","Back"),L("Deficit Deadlift","Back"),L("Good Morning","Back"),L("Reverse Hyperextension","Back"),
+ L("Dumbbell Shrug","Back"),L("Superman","Back"),
+ // Legs
+ L("Box Squat","Legs"),L("Pause Squat","Legs"),L("Smith Machine Squat","Legs"),L("Zercher Squat","Legs"),L("Pendulum Squat","Legs"),
+ L("Belt Squat","Legs"),L("Sissy Squat","Legs"),L("Split Squat","Legs"),L("Reverse Lunge","Legs"),L("Lateral Lunge","Legs"),
+ L("Step-up","Legs"),L("Single-Leg Leg Press","Legs"),L("Stiff-Leg Deadlift","Legs"),L("Single-Leg Romanian Deadlift","Legs"),
+ L("Nordic Curl","Legs"),L("Glute-Ham Raise","Legs"),L("Standing Leg Curl","Legs"),L("Glute Bridge","Legs"),
+ L("Single-Leg Hip Thrust","Legs"),L("Cable Glute Kickback","Legs"),L("Leg Press Calf Raise","Legs"),L("Donkey Calf Raise","Legs"),
+ L("Tibialis Raise","Legs"),L("Jump Squat","Legs"),
+ // Shoulders
+ L("Push Press","Shoulders"),L("Landmine Press","Shoulders"),L("Z Press","Shoulders"),L("Front Raise","Shoulders"),
+ L("Machine Lateral Raise","Shoulders"),L("Lean-Away Lateral Raise","Shoulders"),L("Reverse Pec Deck","Shoulders"),
+ L("Cable Rear Delt Fly","Shoulders"),L("Y-Raise","Shoulders"),L("Pike Push-up","Shoulders"),L("Handstand Push-up","Shoulders"),
+ L("Band Pull-Apart","Shoulders"),L("Cable External Rotation","Shoulders"),
+ // Arms
+ L("EZ-Bar Curl","Arms"),L("Spider Curl","Arms"),L("Concentration Curl","Arms"),L("Bayesian Cable Curl","Arms"),L("Reverse Curl","Arms"),
+ L("Drag Curl","Arms"),L("Machine Curl","Arms"),L("Rope Hammer Curl","Arms"),L("Zottman Curl","Arms"),
+ L("Overhead Cable Triceps Extension","Arms"),L("Single-Arm Pushdown","Arms"),L("Rope Pushdown","Arms"),L("Dumbbell Kickback","Arms"),
+ L("JM Press","Arms"),L("Triceps Dip","Arms"),L("Machine Triceps Extension","Arms"),L("Wrist Curl","Arms"),L("Reverse Wrist Curl","Arms"),
+ // Core
+ L("Crunch","Core"),L("Bicycle Crunch","Core"),L("Reverse Crunch","Core"),L("Toes-to-Bar","Core"),L("Captain's Chair Leg Raise","Core"),
+ L("Lying Leg Raise","Core"),L("V-Up","Core"),L("Dead Bug","Core"),L("Bird Dog","Core"),L("Mountain Climber","Core"),
+ L("Cable Woodchopper","Core"),L("Landmine Rotation","Core"),L("Hanging Knee Raise","Core"),L("Weighted Sit-up","Core"),L("Dumbbell Side Bend","Core"),
+ T("Copenhagen Plank","Core"),T("Overhead Carry","Shoulders"),T("Wall Handstand Hold","Shoulders"),T("Battle Ropes","Full body"),T("Sandbag Carry","Full body"),
+ // Full body
+ L("Power Clean","Full body"),L("Hang Clean","Full body"),L("Clean and Jerk","Full body"),L("Snatch","Full body"),L("Thruster","Full body"),
+ L("Burpee","Full body"),L("Kettlebell Swing","Full body"),L("Turkish Get-up","Full body"),L("Box Jump","Full body"),L("Wall Ball","Full body"),
+ L("Medicine Ball Slam","Full body"),L("Kettlebell Clean and Press","Full body"),
+ // Cardio
+ C("Jump Rope",null,false),C("Assault Bike",null,false),C("SkiErg",null,false),C("Sled Push",null,false),C("Rucking","Treadmill",true),
+ C("Boxing / Bag Work",null,false),C("Sports",null,false),C("Incline Walk","Treadmill",true)
+];
+MORE.forEach(x=>{if(!CATALOG.some(c=>c.id===x.id))CATALOG.push(x)});
+
+/* Equipment, worked out from the exercise name */
+const EQ_OVERRIDE={"bulgarian-split-squat":"Dumbbells","walking-lunge":"Dumbbells","romanian-deadlift":"Barbell","hip-thrust":"Barbell","rear-delt-fly":"Dumbbells",
+  "hammer-curl":"Dumbbells","shrug":"Barbell","deadlift":"Barbell","barbell-row":"Barbell","t-bar-row":"Barbell","chest-supported-row":"Machine or dumbbells",
+  "skull-crusher":"EZ-bar or barbell","preacher-curl":"EZ-bar or dumbbells","upright-row":"Barbell","reverse-lunge":"Dumbbells","split-squat":"Dumbbells",
+  "step-up":"Dumbbells","lateral-lunge":"Dumbbells","front-raise":"Dumbbells","y-raise":"Dumbbells","wrist-curl":"Dumbbells or barbell","reverse-wrist-curl":"Dumbbells or barbell",
+  "reverse-curl":"EZ-bar","dumbbell-pullover":"Dumbbell","overhead-carry":"Dumbbells or kettlebells","farmer-s-carry":"Dumbbells or handles","suitcase-carry":"Dumbbell or kettlebell",
+  "weighted-pull-up":"Dip belt","weighted-dip":"Dip belt","weighted-push-up":"Plate","weighted-sit-up":"Plate","sled-push":"Sled","battle-ropes":"Battle ropes",
+  "sandbag-carry":"Sandbag","good-morning":"Barbell","stiff-leg-deadlift":"Barbell","single-leg-romanian-deadlift":"Dumbbell","nordic-curl":"Partner or anchor",
+  "glute-ham-raise":"GHD machine","reverse-hyperextension":"Reverse hyper machine","back-extension":"Back extension bench","tibialis-raise":"Wall or tib bar",
+  "assisted-pull-up":"Assisted machine or band","seal-row":"Barbell or dumbbells","meadows-row":"Landmine","jm-press":"Barbell","floor-press":"Barbell",
+  "svend-press":"Plate","box-jump":"Box","wall-ball":"Medicine ball","medicine-ball-slam":"Slam ball","zercher-squat":"Barbell","box-squat":"Barbell and box",
+  "pause-squat":"Barbell","dead-hang":"Pull-up bar","l-sit":"Parallettes or bench","hanging-leg-raise":"Pull-up bar","hanging-knee-raise":"Pull-up bar","toes-to-bar":"Pull-up bar",
+  "captain-s-chair-leg-raise":"Captain's chair","ab-wheel-rollout":"Ab wheel","landmine-rotation":"Landmine","sissy-squat":"Bodyweight","goblet-squat":"Dumbbell or kettlebell"};
+function equipmentOf(ex){if(EQ_OVERRIDE[ex.id])return EQ_OVERRIDE[ex.id];const n=ex.name.toLowerCase();
+  if(ex.kind==="cardio")return ex.indoor?ex.indoor+" or outdoors":"";
+  if(/smith/.test(n))return "Smith machine";
+  if(/machine|pec deck|leg press|hack squat|leg extension|leg curl|adduction|abduction|pendulum|belt squat|calf raise/.test(n))return "Machine";
+  if(/cable|pushdown|face pull|pulldown|crossover|pallof|woodchopper|bayesian|rope hammer/.test(n))return "Cable";
+  if(/dumbbell|goblet|arnold|concentration|zottman|spider|kickback|incline .* fly|side bend/.test(n))return "Dumbbells";
+  if(/kettlebell|turkish/.test(n))return "Kettlebell";
+  if(/band/.test(n))return "Band";
+  if(/barbell|ez-bar|trap bar|landmine|deadlift|squat|press|row|clean|snatch|thruster|rack pull|shrug|curl/.test(n)&&!/push-up|pike|handstand|inverted|sissy|jump/.test(n))return /ez-bar/.test(n)?"EZ-bar":/trap bar/.test(n)?"Trap bar":/landmine/.test(n)?"Landmine":"Barbell";
+  return "Bodyweight"}
+
+/* Form cues for the most common lifts */
+const CUES={
+ "bench-press-barbell":"Shoulder blades pinched, feet planted. Lower to mid-chest, elbows about 45°, press back over the shoulders.",
+ "incline-bench-press-barbell":"Bench at 30–45°. Lower to the upper chest, keep wrists stacked over elbows.",
+ "bench-press-dumbbell":"Press up and slightly in, lower until elbows are just below the bench. Control the bottom.",
+ "incline-bench-press-dumbbell":"Bench at 30°. Lower the dumbbells beside the upper chest, press up without clanking them.",
+ "chest-fly-cable":"Slight bend in the elbows, hug a big tree. Squeeze the chest, don't turn it into a press.",
+ "pec-deck":"Elbows soft and level with the shoulders. Pause when the handles meet.",
+ "chest-dip":"Lean forward, elbows flared slightly. Go down until shoulders dip below elbows, if comfortable.",
+ "push-up":"Body in one straight line, hands under shoulders. Chest to the floor, elbows at about 45°.",
+ "deadlift":"Bar over mid-foot, hips hinge back, chest up. Push the floor away and lock out with glutes, not your lower back.",
+ "pull-up":"Start from a dead hang, pull elbows down to your ribs until chin clears the bar. Control the way down.",
+ "chin-up":"Palms facing you, shoulder width. Pull chest toward the bar, full hang at the bottom.",
+ "lat-pulldown":"Lean back slightly, pull the bar to the upper chest by driving elbows down. Don't yank with the lower back.",
+ "barbell-row":"Hinge to about 45°, flat back. Row to the lower ribs and squeeze the shoulder blades.",
+ "dumbbell-row":"Hand and knee on the bench, back flat. Pull the dumbbell toward your hip, not your armpit.",
+ "seated-cable-row":"Sit tall, pull the handle to the stomach, squeeze the shoulder blades, let them stretch forward on the way back.",
+ "t-bar-row":"Chest up, hinge forward, row the handle to the chest. Keep the torso still.",
+ "face-pull":"Rope at face height, pull toward your forehead and spread the rope apart. Elbows high.",
+ "back-squat":"Bar on the upper back, brace your core. Sit down between your hips to at least parallel, knees track over toes.",
+ "front-squat":"Bar on the front of the shoulders, elbows high. Stay upright and sit straight down.",
+ "goblet-squat":"Hold the weight at your chest, elbows inside the knees at the bottom. Great for learning depth.",
+ "hack-squat":"Feet mid-platform, back flat on the pad. Go deep and drive through the whole foot.",
+ "leg-press":"Feet shoulder width, lower until knees are near the chest without the lower back lifting off the pad.",
+ "romanian-deadlift":"Soft knees, push hips back until you feel a hamstring stretch, bar close to the legs. Stand by squeezing glutes.",
+ "bulgarian-split-squat":"Rear foot on a bench, front foot far enough forward. Drop the back knee straight down.",
+ "walking-lunge":"Long step, back knee nearly touches the floor, push through the front heel into the next step.",
+ "leg-extension":"Pad on the lower shin, extend fully and pause at the top. Slow on the way down.",
+ "lying-leg-curl":"Hips pressed into the pad, curl the heels to the glutes, control the lowering.",
+ "seated-leg-curl":"Thigh pad snug, curl down and back, pause, then return slowly.",
+ "hip-thrust":"Upper back on a bench, bar across the hips. Drive up until hips are level with the knees, chin tucked.",
+ "standing-calf-raise":"Full stretch at the bottom, pause, rise onto the big toe. Slow, no bouncing.",
+ "overhead-press-barbell":"Squeeze glutes, bar starts at the collarbones. Press straight up and move your head back out of the way.",
+ "shoulder-press-dumbbell":"Start at ear height, press up and slightly in. Ribs down, no big arch.",
+ "lateral-raise-dumbbell":"Slight forward lean, lead with the elbows to shoulder height. Light weight, strict form.",
+ "lateral-raise-cable":"Cable from behind or in front, raise out to the side to shoulder height. Constant tension.",
+ "rear-delt-fly":"Hinge forward, arms slightly bent, sweep the weights out wide. Think elbows, not hands.",
+ "shrug":"Shrug straight up toward the ears, pause, lower slowly. No rolling.",
+ "barbell-curl":"Elbows pinned at your sides, curl without swinging. Lower slowly.",
+ "dumbbell-curl":"Turn the palm up as you curl. Full stretch at the bottom.",
+ "hammer-curl":"Palms facing each other the whole time. Works the forearm and brachialis.",
+ "preacher-curl":"Armpits on the pad, don't let the elbows lift. Stop just short of locking out.",
+ "triceps-pushdown":"Elbows pinned to your sides, push down to full lockout, control back up.",
+ "skull-crusher":"Lower toward the forehead or just behind the head, elbows pointing up. Extend without flaring.",
+ "overhead-triceps-extension":"Elbows close to the head, lower behind the neck for a deep stretch, extend fully.",
+ "close-grip-bench-press":"Hands about shoulder width, elbows tucked. Touch the lower chest.",
+ "plank":"Forearms under shoulders, squeeze glutes and brace like you're about to be punched. Straight line head to heels.",
+ "side-plank":"Elbow under shoulder, hips high in a straight line. Don't let them sag.",
+ "hollow-body-hold":"Lower back pressed into the floor, arms and legs extended just off the ground.",
+ "dead-hang":"Hang from the bar with straight arms, shoulders relaxed or lightly engaged. Breathe.",
+ "wall-sit":"Back flat on the wall, knees at 90°, weight in the heels.",
+ "farmer-s-carry":"Heavy weight in each hand, stand tall, short quick steps. Don't let the weights swing.",
+ "hanging-leg-raise":"Hang from the bar, raise straight legs toward the bar without swinging.",
+ "cable-crunch":"Kneel, rope by your head, crunch your ribs toward your hips. The hips stay still.",
+ "ab-wheel-rollout":"From your knees, roll out as far as you can while keeping your back flat, then pull back with your abs.",
+ "pallof-press":"Stand side-on to the cable, press the handle straight out and resist the twist.",
+ "run":"Relaxed shoulders, quick light steps landing under the hips. Easy pace should allow conversation.",
+ "rowing-machine":"Legs, then body, then arms on the drive. Arms, body, then legs on the way back.",
+ "sumo-deadlift":"Wide stance, toes out, hands inside the knees. Push the knees out and the floor away.",
+ "trap-bar-deadlift":"Stand in the middle, handles at your sides, hips lower than a regular deadlift. Push through the floor.",
+ "good-morning":"Bar on the upper back, soft knees, hinge until your torso is near parallel. Stand by driving hips forward.",
+ "pendlay-row":"Bar starts on the floor each rep, back flat and parallel. Row explosively to the lower chest.",
+ "inverted-row":"Body straight under a bar, pull your chest to the bar, squeeze the shoulder blades.",
+ "glute-bridge":"Lie on your back, feet flat, drive hips up and squeeze glutes hard at the top.",
+ "nordic-curl":"Anchor the ankles, lower your body forward as slowly as you can using the hamstrings.",
+ "step-up":"Whole foot on the box, drive through the heel. Don't push off the back leg.",
+ "push-press":"Small dip with the knees, drive the bar up with the legs, finish with the arms.",
+ "landmine-press":"Bar end at the shoulder, press up and forward in an arc. Shoulder-friendly pressing.",
+ "front-raise":"Raise to eye level with straight arms, lower slowly. Don't swing.",
+ "reverse-pec-deck":"Face the pad, arms straight, sweep back until in line with the body.",
+ "band-pull-apart":"Arms straight at chest height, pull the band apart to your chest. Squeeze between the shoulder blades.",
+ "ez-bar-curl":"Grip the angled part of the bar, elbows at your sides. Easier on the wrists than a straight bar.",
+ "concentration-curl":"Elbow braced on the inner thigh, curl slowly and squeeze at the top.",
+ "bayesian-cable-curl":"Face away from the cable, arm behind you. Curl forward for a big stretch on the biceps.",
+ "rope-pushdown":"Push down and spread the rope at the bottom, elbows pinned.",
+ "dumbbell-kickback":"Hinge forward, upper arm parallel to the floor, extend the elbow fully.",
+ "kettlebell-swing":"Hinge, not a squat. Snap the hips forward and let the bell float to chest height.",
+ "burpee":"Squat, kick back to a plank, chest to the floor, jump the feet in, then jump up.",
+ "thruster":"Front squat into a push press in one motion. Use the leg drive to move the bar.",
+ "power-clean":"Bar from the floor, explosive hip extension, pull under and catch on the shoulders in a quarter squat.",
+ "turkish-get-up":"Bell locked out overhead the whole time, eyes on it. Move slowly through each step.",
+ "box-jump":"Swing the arms, jump and land softly with both feet on the box. Step down.",
+ "jump-rope":"Small hops on the balls of your feet, turn the rope with your wrists.",
+ "mountain-climber":"Plank position, drive the knees to the chest one at a time, keep hips level.",
+ "dead-bug":"Back flat on the floor, lower the opposite arm and leg slowly, keep the lower back down.",
+ "bird-dog":"On hands and knees, extend the opposite arm and leg, keep hips square. Pause.",
+ "crunch":"Lower back on the floor, curl the ribs toward the hips. Short range, slow.",
+ "russian-twist":"Lean back with a straight spine, rotate the torso side to side.",
+ "copenhagen-plank":"Side plank with the top leg on a bench. Works the inner thighs.",
+ "cable-woodchopper":"Rotate through the torso from high to low or low to high, arms long, pivot the back foot."
+};
+const demoUrl=ex=>"https://www.youtube.com/results?search_query="+encodeURIComponent("how to do "+ex.name.replace(/[()]/g,"")+" proper form");
+
+const GROUPS=["All","Recent","Chest","Back","Legs","Shoulders","Arms","Core","Full body","Cardio","Custom"];
 const TEMPLATES=[
  {name:"Push",items:[["bench-press-barbell",3,6,8],["incline-bench-press-dumbbell",3,8,10],["overhead-press-barbell",3,6,8],["lateral-raise-dumbbell",3,12,15],["triceps-pushdown",3,10,12]]},
  {name:"Pull",items:[["deadlift",3,4,6],["pull-up",3,6,10],["barbell-row",3,8,10],["face-pull",3,12,15],["hammer-curl",3,10,12]]},
@@ -848,6 +1035,8 @@ function exMenu(e,i){if(S.menu!==e.uid)return "";const a=S.active;const tm=isTim
   const it=(act,label,extra="")=>`<button class="mi${extra}" data-act="${act}" data-ei="${i}">${label}</button>`;
   return `<div class="menu" role="menu">
     ${lift?it("ex-rest",`Rest${tm?"":" and rep range"} <span>${clock(restFor(e))}${e.prog?` · ${e.prog.min}–${e.prog.max} reps`:""}</span>`):""}
+    ${it("ex-info","How to do it")}
+    ${it("ex-swap","Swap exercise")}
     ${it("note-edit",(S.exNotes||{})[e.exId]?"Edit note":"Add note")}
     ${lift&&!tm&&!e.sets.some(s=>s.wu)?it("gen-wu","Add warm-up sets"):""}
     ${lift&&!tm?it("plates","Plate calculator"):""}
@@ -865,7 +1054,25 @@ function shortGoal(e){const g=e.goal;if(!g||!e.prog)return "";const n=work(e).le
 /* ---------- Muscles: heat map + mobility ---------- */
 function musclesFor(e){const n=(e.name||"").toLowerCase();const m={};const add=(k,v)=>m[k]=Math.max(m[k]||0,v);
   if(e.kind==="cardio")return m;
-  if(/leg curl/.test(n))add("hamstrings",1);
+  if(/nordic|glute-ham/.test(n)){add("hamstrings",1);add("glutes",.5)}
+  else if(/wrist curl/.test(n))add("forearms",1);
+  else if(/glute kickback|glute bridge|frog pump/.test(n)){add("glutes",1);add("hamstrings",.5)}
+  else if(/sissy/.test(n))add("quads",1);
+  else if(/tibialis/.test(n))add("calves",.5);
+  else if(/kettlebell swing/.test(n)){add("glutes",1);add("hamstrings",1);add("lowerback",.5)}
+  else if(/clean|snatch|thruster|burpee|turkish|wall ball|slam|battle rope|sandbag/.test(n)){add("quads",.75);add("glutes",.75);add("shoulders",.75);add("traps",.5);add("abs",.5)}
+  else if(/box jump|jump squat/.test(n)){add("quads",1);add("glutes",.5);add("calves",.5)}
+  else if(/superman|reverse hyper/.test(n)){add("lowerback",1);add("glutes",.5)}
+  else if(/good morning|stiff-leg/.test(n)){add("hamstrings",1);add("glutes",1);add("lowerback",.5)}
+  else if(/pullover/.test(n)){add("lats",1);add("chest",.5)}
+  else if(/svend|crossover|machine fly|cable fly/.test(n))add("chest",1);
+  else if(/landmine press|z press|push press|pike|handstand/.test(n)){add("shoulders",1);add("triceps",.5)}
+  else if(/front raise|y-raise|external rotation|pull-apart/.test(n))add("shoulders",1);
+  else if(/kickback|jm press|dip/.test(n)&&!/chest dip|weighted dip/.test(n))add("triceps",1);
+  else if(/weighted dip/.test(n)){add("chest",1);add("triceps",.5)}
+  else if(/woodchopper|rotation|side bend|bicycle|v-up|toes-to-bar|knee raise|mountain|bird dog|copenhagen/.test(n))add("abs",1);
+  else if(/overhead carry/.test(n)){add("shoulders",1);add("traps",.5);add("abs",.5)}
+  else if(/leg curl/.test(n))add("hamstrings",1);
   else if(/leg extension/.test(n))add("quads",1);
   else if(/calf/.test(n))add("calves",1);
   else if(/romanian|good morning/.test(n)){add("hamstrings",1);add("glutes",1);add("lowerback",.5)}
@@ -890,13 +1097,12 @@ function musclesFor(e){const n=(e.name||"").toLowerCase();const m={};const add=(
   else if(/dead hang/.test(n)){add("forearms",1);add("lats",.5)}
   else if(/farmer|suitcase/.test(n)){add("forearms",1);add("traps",.5);if(/suitcase/.test(n))add("abs",.5)}
   else if(/plank|hollow|l-sit|crunch|leg raise|rollout|sit-up|twist|pallof|dead bug/.test(n))add("abs",1);
-  else{const g=(exById(e.exId)||{}).group;({Chest:()=>add("chest",1),Back:()=>add("lats",1),Legs:()=>add("quads",1),Shoulders:()=>add("shoulders",1),Arms:()=>{add("biceps",.5);add("triceps",.5)},Core:()=>add("abs",1)}[g]||(()=>{}))()}
+  else{const g=(exById(e.exId)||{}).group;({Chest:()=>add("chest",1),Back:()=>add("lats",1),Legs:()=>add("quads",1),Shoulders:()=>add("shoulders",1),Arms:()=>{add("biceps",.5);add("triceps",.5)},Core:()=>add("abs",1),"Full body":()=>{add("quads",.5);add("glutes",.5);add("shoulders",.5)}}[g]||(()=>{}))()}
   return m}
 const MUSCLE_NAMES={chest:"Chest",shoulders:"Shoulders",biceps:"Biceps",triceps:"Triceps",forearms:"Forearms",abs:"Abs",quads:"Quads",hamstrings:"Hamstrings",glutes:"Glutes",calves:"Calves",lats:"Lats",traps:"Traps",lowerback:"Lower back"};
 function weekMuscles(){const since=Date.now()-7*864e5;const t={};Object.keys(MUSCLE_NAMES).forEach(k=>t[k]=0);
   S.workouts.forEach(w=>{if(new Date(w.date).getTime()<since)return;(w.entries||[]).forEach(e=>{const n=work(e).filter(s=>s.r||s.t).length;if(!n)return;const m=musclesFor(e);Object.keys(m).forEach(k=>t[k]+=n*m[k])})});return t}
-function heatMap(){const t=weekMuscles();const lvl=v=>v<=0?0:v<4?1:v<10?2:3;
-  const f=k=>`class="mz l${lvl(t[k])}"`;
+function bodySVG(L,cls){const f=k=>`class="mz l${L(k)}"`;
   const front=`<g><circle cx="60" cy="18" r="12" class="mb"/><rect x="54" y="28" width="12" height="10" class="mb"/><rect x="36" y="38" width="48" height="80" rx="16" class="mb"/>
     <rect x="40" y="112" width="40" height="22" rx="8" class="mb"/><ellipse cx="22" cy="132" rx="5" ry="6" class="mb"/><ellipse cx="98" cy="132" rx="5" ry="6" class="mb"/>
     <circle cx="33" cy="50" r="10" ${f("shoulders")}/><circle cx="87" cy="50" r="10" ${f("shoulders")}/>
@@ -919,9 +1125,19 @@ function heatMap(){const t=weekMuscles();const lvl=v=>v<=0?0:v<4?1:v<10?2:3;
     <ellipse cx="49" cy="160" rx="10" ry="23" ${f("hamstrings")}/><ellipse cx="71" cy="160" rx="10" ry="23" ${f("hamstrings")}/>
     <ellipse cx="48" cy="210" rx="8" ry="19" ${f("calves")}/><ellipse cx="72" cy="210" rx="8" ry="19" ${f("calves")}/>
     <text x="60" y="246" text-anchor="middle">Back</text></g>`;
+  return `<svg class="${cls||"body-map"}" viewBox="0 0 250 252" role="img" aria-label="Muscle diagram">${front}${back}</svg>`}
+function exInfo(ex){const m=musclesFor({name:ex.name,exId:ex.id,kind:ex.kind});const ks=Object.keys(m);
+  const prim=ks.filter(k=>m[k]>=1),sec=ks.filter(k=>m[k]<1);const eq=equipmentOf(ex);const cue=CUES[ex.id];const note=(S.exNotes||{})[ex.id];
+  return `<div class="exinfo">${ks.length?bodySVG(k=>m[k]>=1?3:m[k]>0?1:0,"body-mini"):""}
+    <div class="ei-txt">${prim.length?`<div><span class="label">Works</span> <b>${prim.map(k=>MUSCLE_NAMES[k]).join(", ")}</b>${sec.length?`<span class="muted">, plus ${sec.map(k=>MUSCLE_NAMES[k].toLowerCase()).join(", ")}</span>`:""}</div>`:""}
+      ${eq?`<div><span class="label">Equipment</span> ${esc(eq)}</div>`:""}
+      ${cue?`<p class="ei-cue">${esc(cue)}</p>`:""}${note?`<p class="ei-note">${ICON.note}${esc(note)}</p>`:""}
+      <a class="btn sm demo" href="${demoUrl(ex)}" target="_blank" rel="noopener">${ICON.play}Watch a demo</a></div></div>`}
+function heatMap(){const t=weekMuscles();const lvl=v=>v<=0?0:v<4?1:v<10?2:3;
+  const svgBody=bodySVG(k=>lvl(t[k]));
   const hit=Object.keys(t).filter(k=>t[k]>0).sort((a,b)=>t[b]-t[a]);const miss=Object.keys(t).filter(k=>t[k]<=0);
   return `<div class="card stack" style="gap:10px"><div class="row"><span class="label grow">Muscles · last 7 days</span><span class="hm-key"><i class="mz l1"></i>1–3<i class="mz l2"></i>4–9<i class="mz l3"></i>10+ sets</span></div>
-    <svg class="body-map" viewBox="0 0 250 252" role="img" aria-label="Muscles trained in the last 7 days">${front}${back}</svg>
+    ${svgBody}
     ${hit.length?`<div class="hm-list">${hit.map(k=>`<span><b>${trim1(t[k])}</b> ${MUSCLE_NAMES[k]}</span>`).join("")}</div>`:""}
     <div class="muted" style="font-size:13px">${hit.length?(miss.length?`Not trained yet: ${miss.map(k=>MUSCLE_NAMES[k]).join(", ")}.`:"Every muscle group trained this week."):"Log a workout and the muscles you trained light up here."}</div></div>`}
 const MOB={push:[["Band pull-aparts","2 × 15"],["Wall slides","2 × 10"],["Open-book thoracic rotation","8 / side"]],
@@ -970,7 +1186,8 @@ function summaryBody(w){const vol=workoutVolume(w);const sets=(w.entries||[]).re
     <div class="stat"><div class="v">${sets}</div><div class="s">working sets</div></div></div>
    ${(w.prList||[]).length?`<div class="pr-box"><div class="label">🏆 ${w.prList.length} new PR${w.prList.length>1?"s":""}</div>${w.prList.map(p=>`<div>${esc(p)}</div>`).join("")}</div>`:""}
    <div class="lines">${(w.entries||[]).map(e=>`<div class="line"><span class="n">${esc(e.name)}</span><span class="v">${esc(entrySummary(e))}</span></div>`).join("")}</div>
-   <button class="btn primary block" data-act="share-summary" data-id="${w.id}">Share as image</button>`}
+   <button class="btn primary block" data-act="share-summary" data-id="${w.id}">Share as image</button>
+   ${w.routineId&&S.routines.some(r=>r.id===w.routineId)?"":`<button class="btn block" data-act="save-as-r" data-id="${w.id}">Save as routine</button>`}`}
 function loadImg(src){return new Promise(r=>{const i=new Image();i.onload=()=>r(i);i.onerror=()=>r(null);i.src=src})}
 async function drawSummary(w){try{await document.fonts.load("700 80px 'Barlow Condensed'");await document.fonts.load("500 30px 'Public Sans'")}catch(e){}
   const W=1080,H=1350,c=document.createElement("canvas");c.width=W;c.height=H;const x=c.getContext("2d");
@@ -998,6 +1215,8 @@ async function shareSummary(id){const w=S.workouts.find(x=>x.id===id);if(!w)retu
 
 /* ---------- Rendering ---------- */
 const ICON={
+ grip:'<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>',
+ play:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>',
  note:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>',
  more:'<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>',
  chev:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>',
@@ -1153,7 +1372,7 @@ function renderHistory(){let ws=sortedWorkouts();
       <div class="lines">${(w.entries||[]).map(e=>`<div class="line"><span class="n">${esc(e.name)}</span><span class="v">${esc(entrySummary(e))}</span></div>`).join("")}</div>
       ${w.notes?`<div class="note">${esc(w.notes)}</div>`:""}
       ${S.confirm==="del-"+w.id?`<div class="confirm"><span>Delete this workout for good?</span><button class="btn sm" data-act="cancel-confirm">Cancel</button><button class="btn sm danger solid" data-act="del-w" data-id="${w.id}">Delete</button></div>`
-       :`<div class="row"><button class="btn sm" data-act="edit-w" data-id="${w.id}">Edit</button><button class="btn sm" data-act="repeat" data-id="${w.id}">Repeat</button><button class="btn sm" data-act="summary" data-id="${w.id}">Share</button><span class="grow"></span><button class="btn sm ghost danger" data-act="ask" data-v="del-${w.id}">Delete</button></div>`}
+       :`<div class="row" style="flex-wrap:wrap"><button class="btn sm" data-act="edit-w" data-id="${w.id}">Edit</button><button class="btn sm" data-act="repeat" data-id="${w.id}">Repeat</button><button class="btn sm" data-act="summary" data-id="${w.id}">Share</button><button class="btn sm" data-act="save-as-r" data-id="${w.id}">Save as routine</button><span class="grow"></span><button class="btn sm ghost danger" data-act="ask" data-v="del-${w.id}">Delete</button></div>`}
     </article>`});
   if(ws.length>S.histLimit)out+=`<button class="btn block" data-act="more">Show older workouts</button>`;
   return out}
@@ -1238,14 +1457,15 @@ function renderRoutines(){
       return `<div class="rt-it"><div class="line"><span class="n">${esc(it.name)}${it.ss?` <span class="tag acc">superset</span>`:""}</span><span class="v">${it.kind==="cardio"?"cardio":isTimed(it)?`${it.sets} × ${clock(it.reps||30)}`:`${it.sets} × ${mn===mx?mn:mn+"–"+mx}`}${it.rest?" · "+clock(it.rest):""}</span></div>
       ${l?`<div class="rt-last">Last ${fmtShort(l.w.date)}: ${esc(entrySummary(l.e))}</div>`:""}</div>`}).join("")}</div>
     ${S.confirm==="delr-"+r.id?`<div class="confirm"><span>Delete this routine? Past workouts stay saved.</span><button class="btn sm" data-act="cancel-confirm">Cancel</button><button class="btn sm danger solid" data-act="del-r" data-id="${r.id}">Delete</button></div>`
-    :`<div class="row"><button class="btn sm" data-act="start-routine" data-id="${r.id}">Start</button><button class="btn sm" data-act="edit-routine" data-id="${r.id}">Edit</button><span class="grow"></span><button class="btn sm ghost danger" data-act="ask" data-v="delr-${r.id}">Delete</button></div>`}</article>`});
+    :`<div class="row"><button class="btn sm" data-act="start-routine" data-id="${r.id}">Start</button><button class="btn sm" data-act="edit-routine" data-id="${r.id}">Edit</button><button class="btn sm" data-act="dup-r" data-id="${r.id}">Duplicate</button><span class="grow"></span><button class="btn sm ghost danger" data-act="ask" data-v="delr-${r.id}">Delete</button></div>`}</article>`});
   return out}
 
 /* ---------- Sheets ---------- */
 function renderSheet(){const el=$("#sheet");const sh=S.sheet;if(!sh){el.innerHTML="";el.dataset.type="";return}
   const prevB=$("#sheet-b"),key=sh.type+(sh.target||""),keep=prevB&&el.dataset.type===key?prevB.scrollTop:0;
   let title="",body="",foot="";
-  if(sh.type==="picker"){title="Add exercise";body=pickerBody(sh)}
+  if(sh.type==="picker"){title=/^swap/.test(sh.target)?"Swap exercise":"Add exercises";body=pickerBody(sh);foot=pickerFoot(sh)}
+  else if(sh.type==="exinfo"){const ex=exById(sh.id);title=ex?ex.name:"Exercise";body=ex?exInfo(ex):""}
   else if(sh.type==="routine"){const d=S.routineDraft;title=d.isNew?"New routine":"Edit routine";body=routineBody(d);foot=routineFoot(d)}
   else if(sh.type==="settings"){title="Settings";body=settingsBody()}
   else if(sh.type==="plates"){title="Plate calculator";body=platesBody()}
@@ -1255,28 +1475,34 @@ function renderSheet(){const el=$("#sheet");const sh=S.sheet;if(!sh){el.innerHTM
     const top=sb.scrollTop;const h=el.querySelector(".sheet-h h2");if(h)h.textContent=title;
     sb.innerHTML=body;const f=$("#sheet-foot");if(f)f.innerHTML=foot;
     if(sb.scrollTop!==top)sb.scrollTop=top;requestAnimationFrame(()=>{if(Math.abs(sb.scrollTop-top)>1)sb.scrollTop=top});return}
-  el.innerHTML=`<div class="sheet-bg" data-act="close-sheet-bg"><div class="sheet" role="dialog" aria-modal="true" aria-label="${title}"><div class="sheet-h"><h2>${title}</h2><button class="icon-btn" data-act="close-sheet" aria-label="Close">${ICON.x}</button></div><div class="sheet-b" id="sheet-b">${body}</div><div id="sheet-foot">${foot}</div></div></div>`;el.dataset.type=key;
+  el.innerHTML=`<div class="sheet-bg" data-act="close-sheet-bg"><div class="sheet" data-type="${sh.type}" role="dialog" aria-modal="true" aria-label="${title}"><div class="sheet-h"><h2>${title}</h2><button class="icon-btn" data-act="close-sheet" aria-label="Close">${ICON.x}</button></div><div class="sheet-b" id="sheet-b">${body}</div><div id="sheet-foot">${foot}</div></div></div>`;el.dataset.type=key;
   if(sh.type==="routine"&&S.rtReturn!=null){const nb=$("#sheet-b");const v=S.rtReturn;S.rtReturn=null;if(nb)nb.scrollTop=v==="bottom"?nb.scrollHeight:v}}
 function pickerBody(sh){
   if(sh.creating)return `<div class="field"><label class="label" for="cx-name">Exercise name</label><input class="in" id="cx-name" placeholder="e.g. Landmine Press"></div>
     <div class="field"><span class="label">Type</span><div class="seg" role="group"><button data-act="cx-kind" data-v="lift" aria-pressed="${sh.cxKind==="lift"||!sh.cxKind}">Reps</button><button data-act="cx-kind" data-v="timed" aria-pressed="${sh.cxKind==="timed"}">Timed hold</button><button data-act="cx-kind" data-v="cardio" aria-pressed="${sh.cxKind==="cardio"}">Cardio</button></div></div>
-    ${sh.cxKind==="cardio"?"":`<div class="field"><label class="label" for="cx-grp">Muscle group</label><select class="in" id="cx-grp">${GROUPS.slice(1,7).map(g=>`<option>${g}</option>`).join("")}</select></div>`}
+    ${sh.cxKind==="cardio"?"":`<div class="field"><label class="label" for="cx-grp">Muscle group</label><select class="in" id="cx-grp">${GROUPS.filter(g=>!["All","Recent","Cardio","Custom"].includes(g)).map(g=>`<option>${g}</option>`).join("")}</select></div>`}
     <div class="row"><button class="btn" data-act="cx-cancel">Back</button><button class="btn primary grow" data-act="cx-save">Create and add</button></div>`;
   return `<input class="in" id="pick-q" data-f="pickq" type="search" placeholder="Search exercises" value="${esc(sh.q)}" style="text-align:left;padding:11px" autocomplete="off">
    <div class="chips" role="group" aria-label="Muscle group">${GROUPS.map(g=>`<button class="chip" data-act="pick-group" data-v="${g}" aria-pressed="${sh.group===g}">${g}</button>`).join("")}</div>
+   ${/^swap/.test(sh.target)?`<div class="notice">Pick the exercise to swap in. Sets, rep range and rest carry over.</div>`:""}
    <div class="ex-list" id="pick-list">${pickerList(sh)}</div>
    <button class="btn block" data-act="cx-new">+ Create custom exercise</button>`}
-function pickerList(sh){const q=sh.q.trim().toLowerCase();
-  const list=allEx().filter(e=>(sh.group==="All"||(sh.group==="Custom"?e.custom:e.group===sh.group))&&(!q||e.name.toLowerCase().includes(q)));
-  if(!list.length)return `<div class="muted" style="padding:14px 0">No match. Create it as a custom exercise below.</div>`;
-  return list.map(e=>{const l=lastEntry(e.id);return `<button class="ex-item" data-act="pick" data-id="${e.id}"><div class="grow"><div class="nm">${esc(e.name)}</div><div class="gp">${esc(e.group)}${e.custom?" · custom":""}</div></div>${l?`<span class="last">${fmtShort(l.w.date)}</span>`:""}${e.kind==="cardio"?'<span class="tag">Cardio</span>':e.timed?'<span class="tag">Timed</span>':""}</button>`}).join("")}
+function pickerList(sh){const q=sh.q.trim().toLowerCase();const multi=!/^swap/.test(sh.target);const sel=sh.sel||[];
+  let pool=allEx();if(sh.group==="Recent"){const seen=[];sortedWorkouts().forEach(w=>(w.entries||[]).forEach(e=>{if(!seen.includes(e.exId))seen.push(e.exId)}));pool=seen.map(id=>exById(id)).filter(Boolean)}
+  const list=pool.filter(e=>(sh.group==="All"||sh.group==="Recent"||(sh.group==="Custom"?e.custom:e.group===sh.group))&&(!q||e.name.toLowerCase().includes(q)||(e.group||"").toLowerCase().includes(q)||equipmentOf(e).toLowerCase().includes(q)));
+  if(!list.length)return `<div class="muted" style="padding:14px 0">${sh.group==="Recent"?"Exercises you've logged will show up here.":"No match. Create it as a custom exercise below."}</div>`;
+  return list.map(e=>{const l=lastEntry(e.id);const on=sel.includes(e.id);const eq=equipmentOf(e);
+    return `<div class="pk${on?" sel":""}"><button class="ex-item" data-act="pick" data-id="${e.id}" aria-pressed="${multi?on:"false"}">${multi?`<span class="tick">${ICON.check}</span>`:""}<div class="grow"><div class="nm">${esc(e.name)}</div><div class="gp">${esc(e.group)}${eq&&e.kind!=="cardio"?" · "+esc(eq):""}${e.custom?" · custom":""}</div></div>${l?`<span class="last">${fmtShort(l.w.date)}</span>`:""}${e.kind==="cardio"?'<span class="tag">Cardio</span>':e.timed?'<span class="tag">Timed</span>':""}</button>
+      <button class="info-btn" data-act="pick-info" data-id="${e.id}" aria-expanded="${sh.info===e.id}" aria-label="About ${esc(e.name)}">i</button></div>${sh.info===e.id?exInfo(e):""}`}).join("")}
+function pickerFoot(sh){if(/^swap/.test(sh.target)||sh.creating)return "";const n=(sh.sel||[]).length;
+  return `<div class="sheet-f"><button class="btn primary block" data-act="pick-add" ${n?"":"disabled"}>${n?`Add ${n} exercise${n>1?"s":""}`:"Tap exercises to select them"}</button></div>`}
 function routineBody(d){const last=d.items.length-1;
   return `<div class="field"><label class="label" for="rt-name">Routine name</label><input class="in" id="rt-name" data-f="rtname" value="${esc(d.name)}" placeholder="e.g. Upper body A" style="text-align:left;padding:11px"></div>
    <div>${d.items.length?d.items.map((it,i)=>{const tm=isTimed(it);const lift=it.kind!=="cardio";
      const open=S.rtOpen===i;const mn=it.repMin??it.reps,mx=it.repMax??it.reps;
      const sum=it.kind==="cardio"?"Cardio":tm?`${it.sets} × ${clock(it.reps)} hold · ${clock(it.rest||restFor(it))} rest`:`${it.sets} × ${mn===mx?mn:mn+"–"+mx} · ${clock(it.rest||restFor(it))} rest · +${wOut(it.inc||defaultIncKg())} ${S.unit}${it.warmup?" · warm-ups":""}`;
-     return `<div class="rt-edit-item${open?" open":""}"><div class="rt-top"><button class="rt-sum" data-act="rt-open" data-i="${i}" aria-expanded="${open}"><span class="rt-n">${esc(it.name)}</span><span class="rt-s">${esc(sum)}${it.ss?" · superset":""}</span></button>
-       <button class="icon-btn" data-act="rt-up" data-i="${i}" aria-label="Move up" ${i?"":"disabled"}>↑</button><button class="icon-btn danger-i" data-act="rt-rm" data-i="${i}" aria-label="Remove">${ICON.x}</button></div>
+     return `<div class="rt-edit-item${open?" open":""}${S.rtDrag===i?" dragging":""}"><div class="rt-top"><span class="rt-handle" data-i="${i}" role="button" aria-label="Drag to reorder ${esc(it.name)}">${ICON.grip}</span><button class="rt-sum" data-act="rt-open" data-i="${i}" aria-expanded="${open}"><span class="rt-n">${esc(it.name)}</span><span class="rt-s">${esc(sum)}${it.ss?" · superset":""}</span></button>
+       <button class="icon-btn danger-i" data-act="rt-rm" data-i="${i}" aria-label="Remove ${esc(it.name)}">${ICON.x}</button></div>
      ${open?`<div class="rt-body">`:`<div class="rt-body" hidden>`}
      ${lift?`<div class="rt-grid">
        <div class="rt-f"><span class="label">Sets</span><span class="stepper"><button data-act="rt-step" data-i="${i}" data-k="sets" data-v="-1" aria-label="Fewer sets">−</button><span>${it.sets}</span><button data-act="rt-step" data-i="${i}" data-k="sets" data-v="1" aria-label="More sets">+</button></span></div>
@@ -1286,7 +1512,10 @@ function routineBody(d){const last=d.items.length-1;
        ${tm?"":`<div class="rt-f"><span class="label">Weight jump (${S.unit})</span><span class="stepper"><button data-act="rt-incstep" data-i="${i}" data-v="-1" aria-label="Smaller weight jump">−</button><input class="step-in" id="rtinc-${i}" data-f="rtinc" data-i="${i}" inputmode="decimal" value="${wOut(it.inc||defaultIncKg())}" aria-label="Weight jump in ${S.unit}"><button data-act="rt-incstep" data-i="${i}" data-v="1" aria-label="Bigger weight jump">+</button></span></div>`}
        <div class="rt-f"><span class="label">Rest</span><span class="stepper"><button data-act="rt-step" data-i="${i}" data-k="rest" data-v="-1" aria-label="Shorter rest">−</button><span>${clock(it.rest||restFor(it))}</span><button data-act="rt-step" data-i="${i}" data-k="rest" data-v="1" aria-label="Longer rest">+</button></span></div></div>`:""}
      <div class="chips rt-chips">${lift&&!tm?`<button class="chip" data-act="rt-tog" data-k="warmup" data-i="${i}" aria-pressed="${!!it.warmup}">Warm-up sets</button>`:""}
-       ${i<last?`<button class="chip" data-act="rt-tog" data-k="ss" data-i="${i}" aria-pressed="${!!it.ss}">Superset with next</button>`:""}</div></div></div>`}).join(""):'<div class="muted">No exercises yet.</div>'}</div>
+       ${i<last?`<button class="chip" data-act="rt-tog" data-k="ss" data-i="${i}" aria-pressed="${!!it.ss}">Superset with next</button>`:""}</div>
+     <div class="row" style="flex-wrap:wrap"><button class="btn sm" data-act="rt-swap" data-i="${i}">Swap exercise</button><button class="btn sm" data-act="rt-info" data-i="${i}" aria-expanded="${S.rtInfo===i}">How to do it</button></div>
+     ${S.rtInfo===i&&exById(it.exId)?exInfo(exById(it.exId)):""}</div></div>`}).join(""):'<div class="muted">No exercises yet.</div>'}</div>
+   ${d.items.length>1?`<div class="muted" style="font-size:13px">Drag ${ICON.grip.replace('<svg','<svg width="12" height="12" style="vertical-align:-1px"')} to reorder. Tap an exercise to edit it.</div>`:""}
    <div class="muted" style="font-size:13px">Progression: hit the target reps on every set and the next session adds a rep. Top out the range and it adds weight and resets to the minimum.</div>
    <button class="btn block" data-act="open-picker" data-v="routine">+ Add exercise</button>`}
 function routineFoot(d){const missing=!((d.name||"").trim())?"Name the routine to save it.":!d.items.length?"Add at least one exercise to save it.":"";
@@ -1331,8 +1560,8 @@ document.addEventListener("click",ev=>{const b=ev.target.closest("[data-act]");i
   case "settings":S.sheet={type:"settings"};renderSheet();break;
   case "rest-def":S.rest=+v;saveProfile();render();break;
   case "sound":S.sound=v==="1";if(S.sound)unlockAudio();saveProfile();renderSheet();break;
-  case "close-sheet":S.sheet=S.sheet&&S.sheet.type==="picker"&&S.sheet.target==="routine"?{type:"routine"}:null;renderSheet();break;
-  case "close-sheet-bg":if(ev.target===b){S.sheet=S.sheet&&S.sheet.type==="picker"&&S.sheet.target==="routine"?{type:"routine"}:null;renderSheet()}break;
+  case "close-sheet":S.sheet=S.sheet&&S.sheet.type==="picker"&&/routine/.test(S.sheet.target)?{type:"routine"}:null;renderSheet();break;
+  case "close-sheet-bg":if(ev.target===b){S.sheet=S.sheet&&S.sheet.type==="picker"&&/routine/.test(S.sheet.target)?{type:"routine"}:null;renderSheet()}break;
   case "start-empty":unlockAudio();startWorkout(null,[]);break;
   case "start-routine":{unlockAudio();const r=S.routines.find(x=>x.id===b.dataset.id);if(!r)break;
     if(S.active&&S.tab!=="log"){S.tab="log";render();toast("Finish or discard the current workout first.");break}
@@ -1349,16 +1578,28 @@ document.addEventListener("click",ev=>{const b=ev.target.closest("[data-act]");i
     startWorkout(w.name,(w.entries||[]).map(e=>{const ex=exById(e.exId)||{id:e.exId,name:e.name,kind:e.kind};
       if(e.kind==="cardio")return newEntry(ex,{cardio:{mode:e.cardio&&e.cardio.mode,incline:e.cardio&&e.cardio.incline}});
       const n=newEntry(ex,{sets:(e.sets||[]).length});n.sets=(e.sets||[]).map(s=>isTimed(e)?{w:s.w??null,t:s.t??null,done:false}:{w:s.w,r:s.r,done:false});return n}));break}
-  case "open-picker":if(v==="routine"){const sb=$("#sheet-b");S.rtReturn=sb?sb.scrollTop:0}S.sheet={type:"picker",target:v,q:"",group:"All",creating:false};renderSheet();setTimeout(()=>{const q=$("#pick-q");if(q&&window.matchMedia("(pointer:fine)").matches)q.focus()},30);break;
-  case "pick-group":S.sheet.group=v;renderSheet();break;
-  case "pick":{const ex=exById(b.dataset.id);if(ex)addPicked(ex);break}
+  case "open-picker":if(v==="routine"){const sb=$("#sheet-b");S.rtReturn=sb?sb.scrollTop:0}S.sheet={type:"picker",target:v,q:"",group:"All",creating:false,sel:[]};renderSheet();setTimeout(()=>{const q=$("#pick-q");if(q&&window.matchMedia("(pointer:fine)").matches)q.focus()},30);break;
+  case "pick-group":S.sheet.group=v;S.sheet.info=null;renderSheet();break;
+  case "pick":{const ex=exById(b.dataset.id);if(!ex)break;const sh=S.sheet;
+    if(/^swap/.test(sh.target)){swapTo(ex);break}
+    sh.sel=sh.sel||[];const k=sh.sel.indexOf(ex.id);if(k>=0)sh.sel.splice(k,1);else sh.sel.push(ex.id);
+    const row=b.closest(".pk");if(row){row.classList.toggle("sel",k<0);b.setAttribute("aria-pressed",String(k<0))}const f=$("#sheet-foot");if(f)f.innerHTML=pickerFoot(sh);break}
+  case "pick-info":{const sh=S.sheet;sh.info=sh.info===b.dataset.id?null:b.dataset.id;$("#pick-list").innerHTML=pickerList(sh);break}
+  case "pick-add":{const ids=(S.sheet.sel||[]).slice();if(!ids.length)break;addMany(ids.map(id=>exById(id)).filter(Boolean));break}
+  case "ex-info":{const e=a.entries[ei];S.menu=null;S.sheet={type:"exinfo",id:e.exId};render();break}
+  case "ex-swap":{const e=a.entries[ei];S.menu=null;S.sheet={type:"picker",target:"swap-active",ei,q:"",group:"All",creating:false};render();break}
+  case "rt-swap":{const i=+b.dataset.i;const sb=$("#sheet-b");S.rtReturn=sb?sb.scrollTop:0;S.sheet={type:"picker",target:"swap-routine",idx:i,q:"",group:"All",creating:false};renderSheet();break}
+  case "rt-info":{const i=+b.dataset.i;S.rtInfo=S.rtInfo===i?-1:i;renderSheet();break}
+  case "dup-r":{const r=S.routines.find(x=>x.id===b.dataset.id);if(!r)break;const c=JSON.parse(JSON.stringify(r));c.id=uid();c.name=r.name+" copy";c.isNew=true;
+    S.routineDraft=c;S.rtErr=null;S.rtOpen=-1;S.sheet={type:"routine"};renderSheet();toast("Copied. Rename it and adjust, then save.");break}
+  case "save-as-r":{const w=S.workouts.find(x=>x.id===b.dataset.id);if(!w)break;S.routineDraft=routineFromWorkout(w);S.rtErr=null;S.rtOpen=-1;S.sheet={type:"routine"};render();toast("Check the details, then tap Save routine.");break}
   case "cx-new":S.sheet.creating=true;S.sheet.cxKind="lift";S.sheet.cxName=S.sheet.q;renderSheet();{const n=$("#cx-name");if(n)n.value=S.sheet.q||""}break;
   case "cx-kind":{const n=$("#cx-name");S.sheet.cxName=n?n.value:"";S.sheet.cxKind=v;renderSheet();const n2=$("#cx-name");if(n2)n2.value=S.sheet.cxName||"";break}
   case "cx-cancel":S.sheet.creating=false;renderSheet();break;
   case "cx-save":{const name=($("#cx-name").value||"").trim();if(!name){toast("Give the exercise a name.");break}
     if(allEx().some(e=>e.name.toLowerCase()===name.toLowerCase())){toast("That exercise already exists. Search for it instead.");break}
-    const kind=S.sheet.cxKind==="cardio"?"cardio":"lift";const ex={id:"c-"+uid(),name,kind,custom:true,group:kind==="cardio"?"Cardio":($("#cx-grp")||{}).value||"Other"};
-    if(kind==="cardio"){ex.indoor="Indoor";ex.incline=true}if(S.sheet.cxKind==="timed")ex.timed=true;S.customEx.push(ex);saveProfile();addPicked(ex);break}
+    const kind=S.sheet.cxKind==="cardio"?"cardio":"lift";const ex={id:"c-"+uid(),name,kind,custom:true,group:kind==="cardio"?"Cardio":($("#cx-grp")||{}).value||"Other"};S.sheet.cxDone=true;
+    if(kind==="cardio"){ex.indoor="Indoor";ex.incline=true}if(S.sheet.cxKind==="timed")ex.timed=true;S.customEx.push(ex);saveProfile();if(/^swap/.test(S.sheet.target)){swapTo(ex);break}S.sheet.creating=false;S.sheet.sel=(S.sheet.sel||[]).concat(ex.id);S.sheet.q="";renderSheet();toast(`${ex.name} created and selected`);break}
   case "rm-ex":S.menu=null;S.confirm=null;if(hold)stopHold(false);a.entries.splice(ei,1);saveProfile();render();break;
   case "add-set":{const e=a.entries[ei];const l=e.sets[e.sets.length-1]||{};e.sets.push(isTimed(e)?{w:l.w??null,t:l.t??null,done:false}:{w:l.w??null,r:l.r??null,done:false});saveProfile();render();break}
   case "rm-set":S.menu=null;a.entries[ei].sets.pop();saveProfile();render();break;
@@ -1432,6 +1673,28 @@ document.addEventListener("click",ev=>{const b=ev.target.closest("[data-act]");i
     catch(e){console.error(e);S.rtErr="Couldn't save the routine ("+(e&&e.message||"unknown error")+"). Reload the page and try again.";renderSheet()}break}
   case "del-r":S.routines=S.routines.filter(r=>r.id!==b.dataset.id);S.confirm=null;saveProfile();render();break;
   }});
+function routineItemFor(ex){const pr=(S.exProg||{})[ex.id]||S.lastRange||{min:8,max:12};
+  return ex.kind==="cardio"?{exId:ex.id,name:ex.name,kind:ex.kind,sets:1}:ex.timed?{exId:ex.id,name:ex.name,kind:ex.kind,sets:3,reps:30,timed:true}:{exId:ex.id,name:ex.name,kind:ex.kind,sets:3,repMin:pr.min,repMax:pr.max,reps:pr.min,inc:pr.inc||defaultIncKg()}}
+function addMany(list){const sh=S.sheet;
+  if(sh.target==="routine"){S.rtErr=null;S.rtReturn="bottom";const start=S.routineDraft.items.length;list.forEach(ex=>S.routineDraft.items.push(routineItemFor(ex)));S.rtOpen=list.length===1?start:-1;S.sheet={type:"routine"};renderSheet();return}
+  const ents=list.map(ex=>newEntry(ex));
+  if(!S.active){S.sheet=null;startWorkout(null,ents);return}
+  S.active.entries.push(...ents);S.sheet=null;saveProfile();render();toast(`Added ${list.length} exercise${list.length>1?"s":""}`);
+  setTimeout(()=>{const secs=document.querySelectorAll("section.ex");const el=secs[secs.length-list.length];if(el)el.scrollIntoView({behavior:"smooth",block:"start"})},60)}
+function swapTo(ex){const sh=S.sheet;
+  if(sh.target==="swap-routine"){const it=S.routineDraft.items[sh.idx];const fresh=routineItemFor(ex);
+    const sameKind=(it.kind==="cardio")===(ex.kind==="cardio")&&!!isTimed(it)===!!ex.timed;
+    const keep=sameKind?{sets:it.sets,repMin:it.repMin,repMax:it.repMax,reps:it.reps,inc:it.inc,rest:it.rest,warmup:it.warmup}:{sets:it.sets,rest:it.rest};
+    Object.keys(keep).forEach(k=>keep[k]===undefined&&delete keep[k]);
+    S.routineDraft.items[sh.idx]=Object.assign(fresh,keep,it.ss?{ss:true}:{});S.rtOpen=sh.idx;S.sheet={type:"routine"};renderSheet();toast(`Swapped in ${ex.name}`);return}
+  const a=S.active;const old=a.entries[sh.ei];if(!old){S.sheet=null;render();return}
+  const ne=newEntry(ex,ex.kind==="cardio"?{}:{sets:work(old).length||3});if(old.ss)ne.ss=true;a.entries[sh.ei]=ne;S.sheet=null;saveProfile();render();toast(`Swapped in ${ex.name}`)}
+function routineFromWorkout(w){return {id:uid(),name:w.name,isNew:true,items:(w.entries||[]).map(e=>{const ss=e.ss?{ss:true}:{};
+  if(e.kind==="cardio")return Object.assign({exId:e.exId,name:e.name,kind:"cardio",sets:1},ss);const W=work(e);
+  if(isTimed(e))return Object.assign({exId:e.exId,name:e.name,kind:"lift",timed:true,sets:W.length||3,reps:Math.max(5,...W.map(x=>x.t||0))},ss);
+  const rs=W.map(x=>x.r).filter(Boolean);const pg=e.prog||(S.exProg||{})[e.exId];const mn=pg?pg.min:(rs.length?Math.min(...rs):8);const mx=pg?pg.max:Math.max(mn+2,...rs);
+  const it={exId:e.exId,name:e.name,kind:"lift",sets:W.length||3,repMin:mn,repMax:mx,reps:mn,inc:(pg&&pg.inc)||defaultIncKg()};
+  const rest=(S.exRest||{})[e.exId];if(rest)it.rest=rest;if((e.sets||[]).some(x=>x.wu))it.warmup=true;return Object.assign(it,ss)})}}
 function addPicked(ex){const sh=S.sheet;
   if(sh.target==="routine"){S.rtErr=null;S.rtReturn="bottom";S.rtOpen=S.routineDraft.items.length;const pr=(S.exProg||{})[ex.id]||S.lastRange||{min:8,max:12};S.routineDraft.items.push(ex.kind==="cardio"?{exId:ex.id,name:ex.name,kind:ex.kind,sets:1}:ex.timed?{exId:ex.id,name:ex.name,kind:ex.kind,sets:3,reps:30,timed:true}:{exId:ex.id,name:ex.name,kind:ex.kind,sets:3,repMin:pr.min,repMax:pr.max,reps:pr.min,inc:pr.inc||defaultIncKg()});S.sheet={type:"routine"};renderSheet();return}
   if(!S.active){startWorkout(null,[newEntry(ex)]);S.sheet=null;renderSheet();return}
@@ -1483,6 +1746,18 @@ function importText(text){let o;try{o=JSON.parse(text.trim())}catch(e){toast("Th
   (p.customEx||[]).forEach(e=>{if(e&&e.id&&!S.customEx.some(x=>x.id===e.id))S.customEx.push(JSON.parse(JSON.stringify(e)))});
   let rAdded=0;(p.routines||[]).forEach(r=>{if(r&&r.id&&!S.routines.some(x=>x.id===r.id)){S.routines.push(JSON.parse(JSON.stringify(r)));rAdded++}});
   S.importOpen=false;saveProfile(true);render();toast(`Imported ${added} workout${added===1?"":"s"} and ${rAdded} routine${rAdded===1?"":"s"}`)}
+
+/* ---------- Drag to reorder routine exercises ---------- */
+let drag=null;
+document.addEventListener("pointerdown",ev=>{const h=ev.target.closest(".rt-handle");if(!h)return;ev.preventDefault();drag={i:+h.dataset.i};S.rtDrag=drag.i;S.rtOpen=-1;S.rtInfo=-1;renderSheet();
+  try{navigator.vibrate&&navigator.vibrate(8)}catch(_){}});
+document.addEventListener("pointermove",ev=>{if(!drag)return;ev.preventDefault();const sb=$("#sheet-b");if(!sb)return;const r=sb.getBoundingClientRect();
+  if(ev.clientY<r.top+56)sb.scrollTop-=14;else if(ev.clientY>r.bottom-56)sb.scrollTop+=14;
+  const items=[...sb.querySelectorAll(".rt-edit-item")];
+  for(let k=0;k<items.length;k++){if(k===drag.i)continue;const bx=items[k].getBoundingClientRect();const mid=bx.top+bx.height/2;
+    if((k<drag.i&&ev.clientY<mid)||(k>drag.i&&ev.clientY>mid)){const arr=S.routineDraft.items;const [m]=arr.splice(drag.i,1);arr.splice(k,0,m);drag.i=k;S.rtDrag=k;renderSheet();break}}},{passive:false});
+const endDrag=()=>{if(!drag)return;drag=null;S.rtDrag=null;renderSheet()};
+document.addEventListener("pointerup",endDrag);document.addEventListener("pointercancel",endDrag);
 
 /* ---------- Swipe a set row left to delete ---------- */
 let sw=null;
