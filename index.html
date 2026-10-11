@@ -650,7 +650,7 @@ function calendar(ws){const now=new Date();if(!S.calMonth)S.calMonth=now.getFull
     <div class="cal-grid">${cells}</div>
     <div class="cal-stats"><span><b>${active}</b> days trained</span><span><b>${total}</b> workout${total===1?"":"s"}</span><span><b>${streak}</b> week streak</span></div></div>`}
 function renderHistory(){let ws=sortedWorkouts();
-  if(!ws.length)return `<h2>History</h2><div class="empty"><strong>No workouts saved yet</strong>Finish a workout in the Log tab and it will appear here with every set and run.</div>`;
+  if(!ws.length)return `<h2>History</h2>${calendar(ws)}<div class="empty"><strong>No workouts saved yet</strong>Finish a workout in the Log tab and it will appear here with every set and run.</div>`;
   let out=`<div class="sec-h"><h2>History</h2><span class="muted">${ws.length} workout${ws.length===1?"":"s"}</span></div>`+calendar(ws);let lastMonth="";
   const dayKey=d=>{const x=new Date(d);return x.getFullYear()+"-"+(x.getMonth()+1)+"-"+x.getDate()};
   if(S.calDay){const sel=ws.filter(w=>dayKey(w.date)===S.calDay);
