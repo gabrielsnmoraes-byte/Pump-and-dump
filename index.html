@@ -316,6 +316,17 @@ body:not(.authed) .tabs,body:not(.authed) .top .seg,body:not(.authed) .top .icon
 .sec-h{display:flex;align-items:center;gap:8px}
 .sec-h h2{flex:1}
 
+/* 3D body */
+.b3-stage{position:relative}
+.b3-slot{width:100%;display:flex;justify-content:center}
+.b3-canvas{display:block;touch-action:pan-y;cursor:grab;max-width:100%}
+.b3-canvas:active{cursor:grabbing}
+.b3.on .b3-fallback{display:none}
+.b3:not(.on) .b3-bar .seg{display:none}
+.b3-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:6px}
+.b3-tip{flex:1;min-width:160px;font-size:13.5px;color:var(--muted)}
+.b3-tip b{color:var(--fg)}
+
 /* Workout reordering + routine update prompt */
 .ex-handle{width:30px;height:var(--tap);display:grid;place-items:center;color:var(--muted);touch-action:none;cursor:grab;flex:none;margin-left:-6px;align-self:center}
 .ex-handle svg{width:18px;height:18px}
@@ -585,7 +596,7 @@ body:not(.authed) .tabs,body:not(.authed) .top .seg,body:not(.authed) .top .icon
 <script>
 (function(){
 "use strict";
-const APP_VERSION="v15";const LB=0.45359237, MI=1.609344, LOCAL_KEY="ironbook-v1";
+const APP_VERSION="v16";const LB=0.45359237, MI=1.609344, LOCAL_KEY="ironbook-v1";
 const $=(s,r=document)=>r.querySelector(s);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
@@ -1146,11 +1157,117 @@ function exInfo(ex){const m=musclesFor({name:ex.name,exId:ex.id,kind:ex.kind});c
       ${eq?`<div><span class="label">Equipment</span> ${esc(eq)}</div>`:""}
       ${cue?`<p class="ei-cue">${esc(cue)}</p>`:""}${note?`<p class="ei-note">${ICON.note}${esc(note)}</p>`:""}
       <a class="btn sm demo" href="${demoUrl(ex)}" target="_blank" rel="noopener">${ICON.play}Watch a demo</a></div></div>`}
+
+/* ---------- 3D muscle body (three.js, loaded on demand) ---------- */
+let B3=null;
+function loadThree(){if(window.THREE)return Promise.resolve();if(loadThree.p)return loadThree.p;
+  loadThree.p=new Promise((res,rej)=>{const s=document.createElement("script");s.src="vendor/three.min.js";s.onload=res;s.onerror=()=>{loadThree.p=null;rej()};document.head.appendChild(s)});return loadThree.p}
+function webglOK(){try{const c=document.createElement("canvas");return !!(c.getContext("webgl2")||c.getContext("webgl"))}catch(e){return false}}
+function isDark(){const t=document.documentElement.dataset.theme;return t?t==="dark":matchMedia("(prefers-color-scheme: dark)").matches}
+function build3D(){const T=THREE;
+  const renderer=new T.WebGLRenderer({antialias:true,alpha:true,powerPreference:"low-power"});renderer.setPixelRatio(Math.min(2,window.devicePixelRatio||1));
+  renderer.domElement.className="b3-canvas";
+  const scene=new T.Scene();const camera=new T.PerspectiveCamera(27,1,0.1,30);camera.position.set(0,1.0,4.45);camera.lookAt(0,0.9,0);
+  scene.add(new T.HemisphereLight(0xdfe8ff,0x1a1f26,0.55));
+  const key=new T.DirectionalLight(0xffffff,1.05);key.position.set(2.4,3.2,3.4);scene.add(key);
+  const fill=new T.DirectionalLight(0x8fa8ff,0.28);fill.position.set(-3,1.2,2);scene.add(fill);
+  const rim=new T.DirectionalLight(0xffb27a,0.85);rim.position.set(-1.6,2.6,-3.6);scene.add(rim);
+  const rim2=new T.DirectionalLight(0x9fc2ff,0.45);rim2.position.set(2,1.5,-3);scene.add(rim2);
+  const root=new T.Group();scene.add(root);
+  const SPH=new T.SphereGeometry(1,40,28);
+  // smooth body-of-revolution from a radius profile [[y,r],...]
+  const lathe=(prof,seg)=>{const pts=new T.SplineCurve(prof.map(([y,r])=>new T.Vector2(r,y))).getPoints(seg||48).map(v=>new T.Vector2(Math.max(0.0005,v.x),v.y)).reverse();return new T.LatheGeometry(pts,40)};
+  const baseMat=new T.MeshStandardMaterial({color:0x262c34,roughness:.5,metalness:.1});
+  const muscles=[];
+  const part=(geo,mat,parent,pos,scale,rot)=>{const m=new T.Mesh(geo,mat);m.position.set(pos[0],pos[1],pos[2]);if(scale)m.scale.set(scale[0],scale[1],scale[2]);if(rot)m.rotation.set(rot[0]||0,rot[1]||0,rot[2]||0);parent.add(m);return m};
+  const mus=(k,parent,pos,scale,rot,geo)=>{const m=part(geo||SPH,new T.MeshStandardMaterial({color:0x3c444e,roughness:.36,metalness:.06}),parent,pos,scale,rot);m.userData.key=k;muscles.push(m);return m};
+  // torso: V-taper, flattened front to back
+  part(lathe([[1.535,0.0],[1.53,0.055],[1.47,0.07],[1.43,0.175],[1.37,0.2],[1.28,0.198],[1.18,0.178],[1.08,0.152],[1.0,0.148],[0.93,0.168],[0.86,0.15],[0.81,0.08],[0.795,0.0]]),baseMat,root,[0,0,0],[1,1,0.6]);
+  part(lathe([[1.6,0.0],[1.58,0.05],[1.5,0.058],[1.44,0.07],[1.42,0.0]],24),baseMat,root,[0,0,0.004]);          // neck
+  part(SPH,baseMat,root,[0,1.675,0.008],[0.084,0.106,0.094]);                                                    // head
+  part(SPH,baseMat,root,[0,1.6,0.035],[0.058,0.05,0.06]);                                                         // jaw
+  // torso muscles
+  [-1,1].forEach(s=>{
+    mus("chest",root,[s*0.086,1.322,0.088],[0.108,0.08,0.056],[0,s*0.24,-s*0.1]);
+    mus("lats",root,[s*0.13,1.21,-0.06],[0.09,0.165,0.05],[0,-s*0.45,s*0.2]);
+    mus("lowerback",root,[s*0.036,1.015,-0.072],[0.036,0.09,0.028]);
+    mus("glutes",root,[s*0.074,0.875,-0.06],[0.088,0.088,0.06]);
+    mus("abs",root,[s*0.116,1.06,0.044],[0.04,0.095,0.04],[0,s*0.55,0]);                                         // obliques
+    [[1.17,0.106],[1.095,0.099],[1.02,0.091]].forEach(([y,z])=>mus("abs",root,[s*0.036,y,z],[0.034,0.034,0.022]));
+  });
+  mus("traps",root,[0,1.445,-0.03],[0.13,0.06,0.058]);
+  mus("traps",root,[0,1.36,-0.08],[0.088,0.08,0.03]);
+  // arms (slight A-pose)
+  [-1,1].forEach(s=>{const sh=new T.Group();sh.position.set(s*0.212,1.395,0);sh.rotation.z=s*0.19;root.add(sh);
+    mus("shoulders",sh,[0,-0.02,0],[0.074,0.088,0.078]);
+    part(lathe([[0.0,0.0],[-0.01,0.046],[-0.12,0.047],[-0.24,0.04],[-0.31,0.035],[-0.33,0.0]]),baseMat,sh,[0,0,0]);
+    mus("biceps",sh,[0,-0.16,0.03],[0.042,0.1,0.038]);
+    mus("triceps",sh,[0,-0.15,-0.03],[0.045,0.108,0.04]);
+    const el=new T.Group();el.position.set(0,-0.305,0);el.rotation.z=-s*0.07;sh.add(el);
+    part(SPH,baseMat,el,[0,0,0],[0.037,0.04,0.037]);
+    part(lathe([[0.0,0.0],[-0.01,0.036],[-0.08,0.043],[-0.18,0.033],[-0.26,0.026],[-0.275,0.0]]),baseMat,el,[0,0,0]);
+    mus("forearms",el,[0,-0.085,0.012],[0.044,0.09,0.04]);
+    part(SPH,baseMat,el,[0,-0.31,0.004],[0.032,0.052,0.019]);
+  });
+  // legs
+  [-1,1].forEach(s=>{const hip=new T.Group();hip.position.set(s*0.093,0.885,0);hip.rotation.z=s*0.025;root.add(hip);
+    part(lathe([[0.0,0.0],[-0.02,0.08],[-0.14,0.08],[-0.3,0.063],[-0.42,0.05],[-0.46,0.0]]),baseMat,hip,[0,0,0]);
+    mus("quads",hip,[0,-0.2,0.044],[0.072,0.19,0.062]);
+    mus("hamstrings",hip,[0,-0.225,-0.042],[0.068,0.17,0.056]);
+    const kn=new T.Group();kn.position.set(0,-0.45,0);kn.rotation.z=-s*0.025;hip.add(kn);
+    part(SPH,baseMat,kn,[0,0,0.004],[0.054,0.056,0.056]);
+    part(lathe([[0.0,0.0],[-0.01,0.05],[-0.12,0.058],[-0.26,0.04],[-0.38,0.03],[-0.41,0.0]]),baseMat,kn,[0,0,0]);
+    mus("calves",kn,[0,-0.12,-0.034],[0.058,0.12,0.054]);
+    part(SPH,baseMat,kn,[0,-0.425,0.045],[0.042,0.028,0.1]);
+  });
+  { // soft floor shadow
+    const c=document.createElement("canvas");c.width=c.height=128;const g=c.getContext("2d");const gr=g.createRadialGradient(64,64,0,64,64,64);
+    gr.addColorStop(0,"rgba(0,0,0,0.55)");gr.addColorStop(1,"rgba(0,0,0,0)");g.fillStyle=gr;g.fillRect(0,0,128,128);
+    const sh=new T.Mesh(new T.PlaneGeometry(0.75,0.75),new T.MeshBasicMaterial({map:new T.CanvasTexture(c),transparent:true,depthWrite:false}));
+    sh.rotation.x=-Math.PI/2;sh.position.y=-0.005;sh.scale.set(1,0.55,1);scene.add(sh);}
+  root.position.y=0.0;
+  const ray=new T.Raycaster(),ptr=new T.Vector2();
+  const b={T,renderer,scene,camera,root,muscles,baseMat,ray,ptr,rotY:0.5,target:null,spinUntil:performance.now()+7000,drag:null,raf:0,sel:null,lv:{},sets:{}};
+  const cv=renderer.domElement;
+  cv.addEventListener("pointerdown",ev=>{b.drag={x:ev.clientX,y:ev.clientY,r:b.rotY,moved:0};b.spinUntil=0;b.target=null;kick3D()});
+  cv.addEventListener("pointermove",ev=>{if(!b.drag)return;const dx=ev.clientX-b.drag.x;b.drag.moved=Math.max(b.drag.moved,Math.abs(dx),Math.abs(ev.clientY-b.drag.y));b.rotY=b.drag.r+dx*0.012;kick3D()});
+  const up=ev=>{if(!b.drag)return;const d=b.drag;b.drag=null;if(d.moved<7)pick3D(ev)};
+  cv.addEventListener("pointerup",up);cv.addEventListener("pointercancel",()=>{b.drag=null});
+  return b}
+function theme3D(){const b=B3;if(!b)return;const dark=isDark();const acc=new b.T.Color(getComputedStyle(document.documentElement).getPropertyValue("--accent").trim()||"#FF7A2E");
+  b.baseMat.color.set(dark?0x262c34:0xaab3be);const zero=new b.T.Color(dark?0x3c444e:0xc9d0d8);
+  b.muscles.forEach(m=>{const l=b.lv[m.userData.key]||0;const c=zero.clone().lerp(acc,[0,.4,.72,1][l]);m.material.color.copy(c);
+    const sel=b.sel&&b.sel===m.userData.key;m.material.emissive.copy(sel?new b.T.Color(0xffffff):acc);m.material.emissiveIntensity=sel?(dark?.32:.42):[0,.04,.12,.26][l]});
+  kick3D()}
+function pick3D(ev){const b=B3;const r=b.renderer.domElement.getBoundingClientRect();b.ptr.set(((ev.clientX-r.left)/r.width)*2-1,-((ev.clientY-r.top)/r.height)*2+1);
+  b.ray.setFromCamera(b.ptr,b.camera);const hit=b.ray.intersectObjects(b.muscles,false)[0];const k=hit?hit.object.userData.key:null;b.sel=k&&k!==b.sel?k:null;
+  const tip=document.getElementById("b3-tip");if(tip)tip.innerHTML=b.sel?`<b>${MUSCLE_NAMES[b.sel]}</b> · ${trim1(b.sets[b.sel]||0)} set${(b.sets[b.sel]||0)===1?"":"s"} in the last 7 days`:"Drag to rotate · tap a muscle";
+  theme3D()}
+function kick3D(){const b=B3;if(!b||b.raf)return;b.raf=requestAnimationFrame(loop3D)}
+function loop3D(t){const b=B3;b.raf=0;if(!b.renderer.domElement.isConnected)return;
+  let more=false;
+  if(b.spinUntil&&t<b.spinUntil){b.rotY+=0.006;more=true}
+  if(b.target!=null){let d=b.target-b.rotY;d=Math.atan2(Math.sin(d),Math.cos(d));if(Math.abs(d)<0.003){b.rotY=b.target;b.target=null}else{b.rotY+=d*0.14;more=true}}
+  if(b.drag)more=true;
+  b.root.rotation.y=b.rotY;b.renderer.render(b.scene,b.camera);if(more)b.raf=requestAnimationFrame(loop3D)}
+function size3D(){const b=B3;const slot=document.querySelector("#body3d .b3-slot");if(!b||!slot)return;const w=slot.clientWidth||320;const h=Math.round(Math.min(440,w*1.12));
+  b.renderer.setSize(w,h,false);b.renderer.domElement.style.width=w+"px";b.renderer.domElement.style.height=h+"px";b.camera.aspect=w/h;b.camera.updateProjectionMatrix();kick3D()}
+function mount3D(){const host=document.getElementById("body3d");if(!host||!webglOK())return;
+  loadThree().then(()=>{const slot=host.querySelector(".b3-slot");if(!slot||!host.isConnected)return;if(!B3)B3=build3D();
+    const t=weekMuscles();B3.sets=t;Object.keys(t).forEach(k=>{const v=t[k];B3.lv[k]=v<=0?0:v<4?1:v<10?2:3});
+    slot.appendChild(B3.renderer.domElement);host.classList.add("on");size3D();theme3D();
+    const tip=document.getElementById("b3-tip");if(tip&&B3.sel)tip.innerHTML=`<b>${MUSCLE_NAMES[B3.sel]}</b> · ${trim1(t[B3.sel]||0)} sets in the last 7 days`;
+    if(!size3D.ro&&window.ResizeObserver){size3D.ro=new ResizeObserver(()=>size3D())}if(size3D.ro){size3D.ro.disconnect();size3D.ro.observe(slot)}
+  }).catch(()=>{})}
+try{matchMedia("(prefers-color-scheme: dark)").addEventListener("change",()=>theme3D())}catch(e){}
+window.__pd3d={get b(){return B3},kick:()=>kick3D()};
+
 function heatMap(){const t=weekMuscles();const lvl=v=>v<=0?0:v<4?1:v<10?2:3;
   const svgBody=bodySVG(k=>lvl(t[k]));
   const hit=Object.keys(t).filter(k=>t[k]>0).sort((a,b)=>t[b]-t[a]);const miss=Object.keys(t).filter(k=>t[k]<=0);
   return `<div class="card stack" style="gap:10px"><div class="row"><span class="label grow">Muscles · last 7 days</span><span class="hm-key"><i class="mz l1"></i>1–3<i class="mz l2"></i>4–9<i class="mz l3"></i>10+ sets</span></div>
-    ${svgBody}
+    <div class="b3" id="body3d"><div class="b3-stage"><div class="b3-slot"></div><div class="b3-fallback">${svgBody}</div></div>
+      <div class="b3-bar"><span class="b3-tip" id="b3-tip">Drag to rotate · tap a muscle</span><span class="seg"><button data-act="b3-view" data-v="0">Front</button><button data-act="b3-view" data-v="3.14159">Back</button></span></div></div>
     ${hit.length?`<div class="hm-list">${hit.map(k=>`<span><b>${trim1(t[k])}</b> ${MUSCLE_NAMES[k]}</span>`).join("")}</div>`:""}
     <div class="muted" style="font-size:13px">${hit.length?(miss.length?`Not trained yet: ${miss.map(k=>MUSCLE_NAMES[k]).join(", ")}.`:"Every muscle group trained this week."):"Log a workout and the muscles you trained light up here."}</div></div>`}
 const MOB={push:[["Band pull-aparts","2 × 15"],["Wall slides","2 × 10"],["Open-book thoracic rotation","8 / side"]],
@@ -1255,7 +1372,7 @@ function render(){if(!user){if(S.auth)renderAuth();return}renderTabs();
   const y=window.scrollY;$("#view").innerHTML=`<div class="stack">${v}</div>`;
   const an=anchor;anchor=null;let el=null;if(an&&an.idx>=0)el=document.querySelectorAll("#view "+an.sel)[an.idx];
   if(el)window.scrollBy(0,el.getBoundingClientRect().top-an.top);else if(Math.abs(window.scrollY-y)>1)window.scrollTo(0,y);
-  renderSheet();tickClock()}
+  renderSheet();tickClock();if(S.tab==="progress")mount3D()}
 let anchor=null;
 function setAnchor(target){anchor=null;if(!target||target.closest("#sheet"))return;const sel="section.ex, article.card, .card";const sec=target.closest(sel);if(!sec)return;
   const list=[...document.querySelectorAll("#view section.ex, #view article.card, #view .card")];anchor={sel,idx:list.indexOf(sec),top:sec.getBoundingClientRect().top}}
@@ -1607,6 +1724,7 @@ document.addEventListener("click",ev=>{const b=ev.target.closest("[data-act]");i
       d.items.forEach(it=>{if(it.kind!=="cardio"&&!isTimed(it)&&it.repMin!=null)S.exProg=Object.assign({},S.exProg,{[it.exId]:{min:it.repMin,max:it.repMax,inc:it.inc||defaultIncKg()}})});
       saveProfile(true);toast(`${r.name} updated`)}S.routineDiff=null;renderSheet();break}
   case "rt-keep":S.routineDiff=null;renderSheet();toast("Routine left as is");break;
+  case "b3-view":if(B3){B3.spinUntil=0;B3.target=+v;kick3D()}break;
   case "pick-info":{const sh=S.sheet;sh.info=sh.info===b.dataset.id?null:b.dataset.id;$("#pick-list").innerHTML=pickerList(sh);break}
   case "pick-add":{const ids=(S.sheet.sel||[]).slice();if(!ids.length)break;addMany(ids.map(id=>exById(id)).filter(Boolean));break}
   case "ex-info":{const e=a.entries[ei];S.menu=null;S.sheet={type:"exinfo",id:e.exId};render();break}
