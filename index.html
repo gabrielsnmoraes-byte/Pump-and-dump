@@ -321,6 +321,12 @@ body:not(.authed) .tabs,body:not(.authed) .top .seg,body:not(.authed) .top .icon
 .upd{position:fixed;left:50%;transform:translateX(-50%);top:calc(10px + env(safe-area-inset-top,0px));z-index:65;display:flex;align-items:center;gap:12px;background:var(--fg);color:var(--bg);padding:8px 8px 8px 16px;border-radius:999px;font-weight:600;font-size:14px;box-shadow:0 8px 24px rgba(0,0,0,.3);white-space:nowrap}
 .upd button{border:0;background:var(--accent);color:var(--accent-fg);font-weight:700;padding:8px 14px;border-radius:999px;min-height:36px}
 
+/* My exercises */
+.info-btn.ed{font-style:normal}.info-btn.ed svg{width:15px;height:15px}
+.my-ex{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.my-ex-row{display:flex;align-items:center;gap:10px;border:0;border-bottom:1px solid var(--line);background:var(--surface);padding:12px;text-align:left;min-height:48px}
+.my-ex-row:last-child{border-bottom:0}.my-ex-row svg{width:15px;height:15px;color:var(--muted)}.my-ex-row .muted{font-size:13px}
+
 /* Muscle detail */
 .md{display:flex;flex-direction:column;gap:6px;background:var(--bg);border-radius:12px;padding:12px;margin-top:4px}
 .md-h{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
@@ -622,7 +628,7 @@ body:not(.authed) .tabs,body:not(.authed) .top .seg,body:not(.authed) .top .icon
 <script>
 (function(){
 "use strict";
-const APP_VERSION="v23";const LB=0.45359237, MI=1.609344, LOCAL_KEY="ironbook-v1";
+const APP_VERSION="v24";const LB=0.45359237, MI=1.609344, LOCAL_KEY="ironbook-v1";
 const $=(s,r=document)=>r.querySelector(s);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
@@ -1090,6 +1096,7 @@ function exMenu(e,i){if(S.menu!==e.uid)return "";const a=S.active;const tm=isTim
     ${it("ex-info","How to do it")}
     ${it("ex-swap","Swap exercise")}
     ${it("note-edit",(S.exNotes||{})[e.exId]?"Edit note":"Add note")}
+    ${(exById(e.exId)||{}).custom?`<button class="mi" data-act="cx-edit" data-id="${e.exId}">Edit exercise</button>`:""}
     ${lift&&!tm&&!e.sets.some(s=>s.wu)?it("gen-wu","Add warm-up sets"):""}
     ${lift&&!tm?it("plates","Plate calculator"):""}
     ${!isLast?it("ss-toggle",e.ss?"Unlink superset":"Superset with next exercise"):""}
@@ -1653,6 +1660,7 @@ function renderSheet(){const el=$("#sheet");const sh=S.sheet;if(!sh){el.innerHTM
   const prevB=$("#sheet-b"),key=sh.type+(sh.target||""),keep=prevB&&el.dataset.type===key?prevB.scrollTop:0;
   let title="",body="",foot="";
   if(sh.type==="picker"){title=/^swap/.test(sh.target)?"Swap exercise":"Add exercises";body=pickerBody(sh);foot=pickerFoot(sh)}
+  else if(sh.type==="cxedit"){title="Edit exercise";body=cxEditBody(sh)}
   else if(sh.type==="exinfo"){const ex=exById(sh.id);title=ex?ex.name:"Exercise";body=ex?exInfo(ex):""}
   else if(sh.type==="routine"){const d=S.routineDraft;title=d.isNew?"New routine":"Edit routine";body=routineBody(d);foot=routineFoot(d)}
   else if(sh.type==="settings"){title="Settings";body=settingsBody()}
@@ -1664,6 +1672,7 @@ function renderSheet(){const el=$("#sheet");const sh=S.sheet;if(!sh){el.innerHTM
     sb.innerHTML=body;const f=$("#sheet-foot");if(f)f.innerHTML=foot;
     if(sb.scrollTop!==top)sb.scrollTop=top;requestAnimationFrame(()=>{if(Math.abs(sb.scrollTop-top)>1)sb.scrollTop=top});return}
   el.innerHTML=`<div class="sheet-bg" data-act="close-sheet-bg"><div class="sheet" data-type="${sh.type}" role="dialog" aria-modal="true" aria-label="${title}"><div class="sheet-h"><h2>${title}</h2><button class="icon-btn" data-act="close-sheet" aria-label="Close">${ICON.x}</button></div><div class="sheet-b" id="sheet-b">${body}</div><div id="sheet-foot">${foot}</div></div></div>`;el.dataset.type=key;
+  if(sh.type==="picker"&&sh.scroll){const nb=$("#sheet-b");if(nb)nb.scrollTop=sh.scroll;sh.scroll=0}
   if(sh.type==="routine"&&S.rtReturn!=null){const nb=$("#sheet-b");const v=S.rtReturn;S.rtReturn=null;if(nb)nb.scrollTop=v==="bottom"?nb.scrollHeight:v}}
 function pickerBody(sh){
   if(sh.creating)return `<div class="field"><label class="label" for="cx-name">Exercise name</label><input class="in" id="cx-name" placeholder="e.g. Landmine Press"></div>
@@ -1682,7 +1691,15 @@ function pickerList(sh){const q=sh.q.trim().toLowerCase();const multi=!/^swap/.t
   if(!list.length)return `<div class="muted" style="padding:14px 0">${sh.group==="Recent"?"Exercises you've logged will show up here.":"No match. Create it as a custom exercise below."}</div>`;
   return list.map(e=>{const l=lastEntry(e.id);const on=sel.includes(e.id);const eq=equipmentOf(e);
     return `<div class="pk${on?" sel":""}"><button class="ex-item" data-act="pick" data-id="${e.id}" aria-pressed="${multi?on:"false"}">${multi?`<span class="tick">${ICON.check}</span>`:""}<div class="grow"><div class="nm">${esc(e.name)}</div><div class="gp">${esc(e.group)}${eq&&e.kind!=="cardio"?" · "+esc(eq):""}${e.custom?" · custom":""}</div></div>${l?`<span class="last">${fmtShort(l.w.date)}</span>`:""}${e.kind==="cardio"?'<span class="tag">Cardio</span>':e.timed?'<span class="tag">Timed</span>':""}</button>
-      <button class="info-btn" data-act="pick-info" data-id="${e.id}" aria-expanded="${sh.info===e.id}" aria-label="About ${esc(e.name)}">i</button></div>${sh.info===e.id?exInfo(e):""}`}).join("")}
+      ${e.custom?`<button class="info-btn ed" data-act="cx-edit" data-id="${e.id}" aria-label="Edit ${esc(e.name)}">${ICON.note}</button>`:""}<button class="info-btn" data-act="pick-info" data-id="${e.id}" aria-expanded="${sh.info===e.id}" aria-label="About ${esc(e.name)}">i</button></div>${sh.info===e.id?exInfo(e):""}`}).join("")}
+function cxEditBody(sh){const ex=S.customEx.find(x=>x.id===sh.id);if(!ex)return `<div class="muted">This exercise no longer exists.</div>`;
+  const used=S.routines.filter(r=>r.items.some(i=>i.exId===ex.id)).length;const logged=S.workouts.filter(w=>(w.entries||[]).some(e=>e.exId===ex.id)).length;
+  return `<div class="field"><label class="label" for="cxe-name">Exercise name</label><input class="in" id="cxe-name" value="${esc(ex.name)}" style="text-align:left;padding:11px"></div>
+   ${ex.kind==="cardio"?"":`<div class="field"><label class="label" for="cxe-mus">Main muscle worked</label><select class="in" id="cxe-mus" style="text-align:left;padding:11px">${MUSCLE_AREAS.map(([a,ks])=>`<optgroup label="${a}">${ks.map(k=>`<option value="${k}" ${ex.muscle===k?"selected":""}>${MUSCLE_NAMES[k]}</option>`).join("")}</optgroup>`).join("")}</select></div>`}
+   <div class="muted" style="font-size:13px">Type: ${ex.kind==="cardio"?"Cardio":ex.timed?"Timed hold":"Reps"} (can't be changed once created). ${logged?`Logged in ${logged} workout${logged>1?"s":""}; a new name updates those too.`:""}</div>
+   <button class="btn primary block" data-act="cxe-save">Save changes</button>
+   ${S.confirm==="cxdel"?`<div class="confirm"><span>Delete ${esc(ex.name)}?${used?` It will be removed from ${used} routine${used>1?"s":""}.`:""} Past workouts keep it.</span><button class="btn sm" data-act="cxe-keep">Keep</button><button class="btn sm danger solid" data-act="cxe-del">Delete</button></div>`
+     :`<button class="btn ghost danger block" data-act="cxe-ask">Delete exercise</button>`}`}
 function pickerFoot(sh){if(/^swap/.test(sh.target)||sh.creating)return "";const n=(sh.sel||[]).length;
   return `<div class="sheet-f"><button class="btn primary block" data-act="pick-add" ${n?"":"disabled"}>${n?`Add ${n} exercise${n>1?"s":""}`:"Tap exercises to select them"}</button></div>`}
 function routineBody(d){const last=d.items.length-1;
@@ -1717,6 +1734,7 @@ function settingsBody(){const restOpts=[45,60,90,120,150,180,240];
    <div class="field"><span class="label">Default rest timer</span><div class="chips">${restOpts.map(s=>`<button class="chip" data-act="rest-def" data-v="${s}" aria-pressed="${S.rest===s}">${clock(s)}</button>`).join("")}</div><div class="muted" style="font-size:13px">Starts when you tick a set as done.</div></div>
    <div class="field"><span class="label">Timer sound</span><div class="seg"><button data-act="sound" data-v="1" aria-pressed="${S.sound}">On</button><button data-act="sound" data-v="0" aria-pressed="${!S.sound}">Off</button></div></div>
    <div class="notice">Weights are stored exactly, so switching units never changes your history.</div>
+   ${S.customEx.length?`<div class="field"><span class="label">My exercises</span><div class="my-ex">${S.customEx.slice().sort((a,b)=>a.name.localeCompare(b.name)).map(x=>`<button class="my-ex-row" data-act="cx-edit" data-id="${x.id}"><span class="grow">${esc(x.name)}</span><span class="muted">${x.kind==="cardio"?"Cardio":esc(MUSCLE_NAMES[x.muscle]||x.group||"")}</span>${ICON.note}</button>`).join("")}</div></div>`:""}
    <div class="field"><span class="label">Backup</span>
      <div class="row" style="flex-wrap:wrap"><button class="btn sm" data-act="export">Export backup</button><button class="btn sm" data-act="import-open">Import backup</button></div>
      <div class="muted" style="font-size:13px">${S.lastBackup?"Last export "+fmtDay(S.lastBackup)+".":"Saves a copy of every workout and routine as a file."}</div>
@@ -1749,7 +1767,7 @@ document.addEventListener("click",ev=>{const b=ev.target.closest("[data-act]");i
   case "settings":S.sheet={type:"settings"};renderSheet();break;
   case "rest-def":S.rest=+v;saveProfile();render();break;
   case "sound":S.sound=v==="1";if(S.sound)unlockAudio();saveProfile();renderSheet();break;
-  case "close-sheet":S.sheet=S.sheet&&S.sheet.type==="picker"&&/routine/.test(S.sheet.target)?{type:"routine"}:null;renderSheet();break;
+  case "close-sheet":if(S.sheet&&S.sheet.type==="cxedit"){S.sheet=S.sheet.back||null;S.confirm=null;renderSheet();break}S.sheet=S.sheet&&S.sheet.type==="picker"&&/routine/.test(S.sheet.target)?{type:"routine"}:null;renderSheet();break;
   case "close-sheet-bg":if(ev.target===b){S.sheet=S.sheet&&S.sheet.type==="picker"&&/routine/.test(S.sheet.target)?{type:"routine"}:null;renderSheet()}break;
   case "start-empty":unlockAudio();startWorkout(null,[]);break;
   case "start-routine":{unlockAudio();const r=S.routines.find(x=>x.id===b.dataset.id);if(!r)break;
@@ -1782,6 +1800,23 @@ document.addEventListener("click",ev=>{const b=ev.target.closest("[data-act]");i
   case "md-ex":S.progEx=b.dataset.id;S.progMetric=null;render();setTimeout(()=>{const el=document.getElementById("prog-ex");if(el)el.closest(".field").scrollIntoView({behavior:"smooth",block:"start"})},60);break;
   case "b3-view":if(B3){B3.spinUntil=0;B3.target=+v;kick3D()}break;
   case "reload-app":flush().finally(()=>location.reload());break;
+  case "cx-edit":{const ex=S.customEx.find(x=>x.id===b.dataset.id);if(!ex)break;S.menu=null;S.confirm=null;const back=S.sheet&&S.sheet.type!=="cxedit"?S.sheet:null;S.sheet={type:"cxedit",id:ex.id,back};
+    if(back&&back.type==="picker"){const sb=$("#sheet-b");back.scroll=sb?sb.scrollTop:0}renderSheet();break}
+  case "cxe-ask":S.confirm="cxdel";renderSheet();break;
+  case "cxe-keep":S.confirm=null;renderSheet();break;
+  case "cxe-save":{const sh=S.sheet;const ex=S.customEx.find(x=>x.id===sh.id);if(!ex)break;const name=($("#cxe-name").value||"").trim();
+    if(!name){toast("Give the exercise a name.");break}
+    if(allEx().some(e=>e.id!==ex.id&&e.name.toLowerCase()===name.toLowerCase())){toast("Another exercise already has that name.");break}
+    const mu=$("#cxe-mus");if(mu&&mu.value){ex.muscle=mu.value;ex.group=MUSCLE_GROUP[mu.value]||ex.group}
+    const renamed=name!==ex.name;ex.name=name;
+    if(renamed){S.routines.forEach(r=>r.items.forEach(i=>{if(i.exId===ex.id)i.name=name}));
+      if(S.active)S.active.entries.forEach(e=>{if(e.exId===ex.id)e.name=name});
+      S.workouts.forEach((w,wi)=>{if(!(w.entries||[]).some(e=>e.exId===ex.id))return;const c=JSON.parse(JSON.stringify(w));c.entries.forEach(e=>{if(e.exId===ex.id)e.name=name});
+        S.workouts[wi]=c;delete outbox.del[c.id];outbox.up[c.id]=c});saveCache();flush()}
+    saveProfile(true);S.sheet=sh.back||null;S.confirm=null;render();renderSheet();toast("Exercise updated");break}
+  case "cxe-del":{const sh=S.sheet;const ex=S.customEx.find(x=>x.id===sh.id);if(!ex)break;S.customEx=S.customEx.filter(x=>x.id!==ex.id);
+    S.routines.forEach(r=>{r.items=r.items.filter(i=>i.exId!==ex.id)});const back=sh.back;if(back&&back.sel)back.sel=back.sel.filter(id=>id!==ex.id);
+    saveProfile(true);S.sheet=back||null;S.confirm=null;render();renderSheet();toast(`${ex.name} deleted`);break}
   case "pick-info":{const sh=S.sheet;sh.info=sh.info===b.dataset.id?null:b.dataset.id;$("#pick-list").innerHTML=pickerList(sh);break}
   case "pick-add":{const ids=(S.sheet.sel||[]).slice();if(!ids.length)break;addMany(ids.map(id=>exById(id)).filter(Boolean));break}
   case "ex-info":{const e=a.entries[ei];S.menu=null;S.sheet={type:"exinfo",id:e.exId};render();break}
