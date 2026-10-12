@@ -316,6 +316,10 @@ body:not(.authed) .tabs,body:not(.authed) .top .seg,body:not(.authed) .top .icon
 .sec-h{display:flex;align-items:center;gap:8px}
 .sec-h h2{flex:1}
 
+/* Update banner */
+.upd{position:fixed;left:50%;transform:translateX(-50%);top:calc(10px + env(safe-area-inset-top,0px));z-index:65;display:flex;align-items:center;gap:12px;background:var(--fg);color:var(--bg);padding:8px 8px 8px 16px;border-radius:999px;font-weight:600;font-size:14px;box-shadow:0 8px 24px rgba(0,0,0,.3);white-space:nowrap}
+.upd button{border:0;background:var(--accent);color:var(--accent-fg);font-weight:700;padding:8px 14px;border-radius:999px;min-height:36px}
+
 /* 3D body */
 .b3-stage{position:relative}
 .b3-slot{width:100%;display:flex;justify-content:center}
@@ -592,11 +596,12 @@ body:not(.authed) .tabs,body:not(.authed) .top .seg,body:not(.authed) .top .icon
 <nav class="tabs" aria-label="Sections"><div class="tabs-in" id="tabs"></div></nav>
 <div id="sheet"></div>
 <div class="toast" id="toast" hidden></div>
+<div class="upd" id="upd" hidden><span>New version ready</span><button data-act="reload-app">Reload</button></div>
 
 <script>
 (function(){
 "use strict";
-const APP_VERSION="v16";const LB=0.45359237, MI=1.609344, LOCAL_KEY="ironbook-v1";
+const APP_VERSION="v17";const LB=0.45359237, MI=1.609344, LOCAL_KEY="ironbook-v1";
 const $=(s,r=document)=>r.querySelector(s);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
@@ -1725,6 +1730,7 @@ document.addEventListener("click",ev=>{const b=ev.target.closest("[data-act]");i
       saveProfile(true);toast(`${r.name} updated`)}S.routineDiff=null;renderSheet();break}
   case "rt-keep":S.routineDiff=null;renderSheet();toast("Routine left as is");break;
   case "b3-view":if(B3){B3.spinUntil=0;B3.target=+v;kick3D()}break;
+  case "reload-app":flush().finally(()=>location.reload());break;
   case "pick-info":{const sh=S.sheet;sh.info=sh.info===b.dataset.id?null:b.dataset.id;$("#pick-list").innerHTML=pickerList(sh);break}
   case "pick-add":{const ids=(S.sheet.sel||[]).slice();if(!ids.length)break;addMany(ids.map(id=>exById(id)).filter(Boolean));break}
   case "ex-info":{const e=a.entries[ei];S.menu=null;S.sheet={type:"exinfo",id:e.exId};render();break}
@@ -1942,7 +1948,14 @@ document.addEventListener("touchend",()=>{if(!sw)return;const r=sw.r;r.style.tra
 let toastT=null;function toast(msg,ms){const t=$("#toast");t.textContent=msg;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,ms||2600)}
 
 boot();
-if("serviceWorker" in navigator&&location.protocol==="https:")navigator.serviceWorker.register("sw.js").catch(()=>{});
+if("serviceWorker" in navigator&&location.protocol==="https:"){
+  const hadSW=!!navigator.serviceWorker.controller;
+  navigator.serviceWorker.register("sw.js",{updateViaCache:"none"}).then(reg=>{
+    const check=()=>{try{reg.update()}catch(e){}};
+    document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")check()});setInterval(check,30*60*1000);
+  }).catch(()=>{});
+  navigator.serviceWorker.addEventListener("controllerchange",()=>{if(!hadSW)return;const u=document.getElementById("upd");if(u)u.hidden=false});
+}
 })();
 </script>
 </body>
