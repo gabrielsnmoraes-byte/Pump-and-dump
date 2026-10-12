@@ -321,6 +321,25 @@ body:not(.authed) .tabs,body:not(.authed) .top .seg,body:not(.authed) .top .icon
 .upd{position:fixed;left:50%;transform:translateX(-50%);top:calc(10px + env(safe-area-inset-top,0px));z-index:65;display:flex;align-items:center;gap:12px;background:var(--fg);color:var(--bg);padding:8px 8px 8px 16px;border-radius:999px;font-weight:600;font-size:14px;box-shadow:0 8px 24px rgba(0,0,0,.3);white-space:nowrap}
 .upd button{border:0;background:var(--accent);color:var(--accent-fg);font-weight:700;padding:8px 14px;border-radius:999px;min-height:36px}
 
+/* Muscle detail */
+.md{display:flex;flex-direction:column;gap:6px;background:var(--bg);border-radius:12px;padding:12px;margin-top:4px}
+.md-h{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.md-h b{font-family:var(--font-display);font-size:20px}
+.md-h .muted{font-size:13px}
+.md-row{display:flex;align-items:center;gap:10px;border:0;background:var(--surface);border-radius:10px;padding:10px 12px;text-align:left;min-height:56px;width:100%}
+.md-n{font-weight:700;font-size:15px}
+.md-s{font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums;margin-top:2px}
+.md-role{font-size:11px;font-weight:700;padding:2px 7px;border-radius:999px;margin-left:4px;vertical-align:1px}
+.md-role.main{background:var(--accent-soft);color:var(--accent)}
+.md-role.assist{background:var(--surface-2);color:var(--muted)}
+.md-w{display:flex;flex-direction:column;align-items:flex-end;min-width:58px;font-size:11.5px;color:var(--muted)}
+.md-w b{font-family:var(--font-display);font-size:22px;color:var(--fg);line-height:1}
+.md-ideas{display:flex;flex-wrap:wrap;gap:6px}
+.md-ideas span{background:var(--surface);border-radius:999px;padding:6px 11px;font-size:13px;font-weight:600}
+.hm-chip{border:0;background:transparent;color:var(--muted);font-size:13px;padding:6px 8px;margin:-6px -4px;border-radius:8px;min-height:34px}
+.hm-chip b{color:var(--fg)}
+.hm-chip.on{background:var(--surface-2);color:var(--fg)}
+
 /* 3D body */
 .b3-stage{position:relative}
 .b3-slot{width:100%;display:flex;justify-content:center}
@@ -602,7 +621,7 @@ body:not(.authed) .tabs,body:not(.authed) .top .seg,body:not(.authed) .top .icon
 <script>
 (function(){
 "use strict";
-const APP_VERSION="v18";const LB=0.45359237, MI=1.609344, LOCAL_KEY="ironbook-v1";
+const APP_VERSION="v19";const LB=0.45359237, MI=1.609344, LOCAL_KEY="ironbook-v1";
 const $=(s,r=document)=>r.querySelector(s);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
@@ -1247,8 +1266,11 @@ function theme3D(){const b=B3;if(!b)return;const dark=isDark();const acc=new b.T
   kick3D()}
 function pick3D(ev){const b=B3;const r=b.renderer.domElement.getBoundingClientRect();b.ptr.set(((ev.clientX-r.left)/r.width)*2-1,-((ev.clientY-r.top)/r.height)*2+1);
   b.ray.setFromCamera(b.ptr,b.camera);const hit=b.ray.intersectObjects(b.muscles,false)[0];const k=hit?hit.object.userData.key:null;b.sel=k&&k!==b.sel?k:null;
-  const tip=document.getElementById("b3-tip");if(tip)tip.innerHTML=b.sel?`<b>${MUSCLE_NAMES[b.sel]}</b> · ${trim1(b.sets[b.sel]||0)} set${(b.sets[b.sel]||0)===1?"":"s"} in the last 7 days`:"Drag to rotate · tap a muscle";
-  theme3D()}
+  selectMuscle(b.sel)}
+function selectMuscle(k){S.selMuscle=k||null;S.mdAll=false;if(B3){B3.sel=S.selMuscle;theme3D()}const t=weekMuscles();
+  const tip=document.getElementById("b3-tip");if(tip)tip.innerHTML=k?`<b>${MUSCLE_NAMES[k]}</b> · ${trim1(t[k]||0)} set${(t[k]||0)===1?"":"s"} in the last 7 days`:"Drag to rotate · tap a muscle";
+  const d=document.getElementById("b3-detail");if(d)d.innerHTML=muscleDetail(S.selMuscle);
+  document.querySelectorAll(".hm-chip").forEach(c=>c.classList.toggle("on",c.dataset.v===S.selMuscle))}
 function kick3D(){const b=B3;if(!b||b.raf)return;b.raf=requestAnimationFrame(loop3D)}
 function loop3D(t){const b=B3;b.raf=0;if(!b.renderer.domElement.isConnected)return;
   let more=false;
@@ -1262,19 +1284,34 @@ function mount3D(){const host=document.getElementById("body3d");if(!host||!webgl
   loadThree().then(()=>{const slot=host.querySelector(".b3-slot");if(!slot||!host.isConnected)return;if(!B3)B3=build3D();
     const t=weekMuscles();B3.sets=t;Object.keys(t).forEach(k=>{const v=t[k];B3.lv[k]=v<=0?0:v<4?1:v<10?2:3});
     slot.appendChild(B3.renderer.domElement);host.classList.add("on");size3D();theme3D();
-    const tip=document.getElementById("b3-tip");if(tip&&B3.sel)tip.innerHTML=`<b>${MUSCLE_NAMES[B3.sel]}</b> · ${trim1(t[B3.sel]||0)} sets in the last 7 days`;
+    B3.sel=S.selMuscle||null;theme3D();const tip=document.getElementById("b3-tip");if(tip&&B3.sel)tip.innerHTML=`<b>${MUSCLE_NAMES[B3.sel]}</b> · ${trim1(t[B3.sel]||0)} sets in the last 7 days`;
     if(!size3D.ro&&window.ResizeObserver){size3D.ro=new ResizeObserver(()=>size3D())}if(size3D.ro){size3D.ro.disconnect();size3D.ro.observe(slot)}
   }).catch(()=>{})}
 try{matchMedia("(prefers-color-scheme: dark)").addEventListener("change",()=>theme3D())}catch(e){}
-window.__pd3d={get b(){return B3},kick:()=>kick3D()};
+window.__pd3d={get b(){return B3},kick:()=>kick3D(),sel:k=>selectMuscle(k)};
 
+function muscleDetail(k){if(!k)return "";const since=Date.now()-7*864e5;const rows={};
+  sortedWorkouts().forEach(w=>{const t=new Date(w.date).getTime();(w.entries||[]).forEach(e=>{const m=musclesFor(e)[k];if(!m)return;
+    let r=rows[e.exId];if(!r)r=rows[e.exId]={id:e.exId,name:e.name,role:m>=1?"main":"assist",last:w.date,lastE:e,sets7:0,n:0};
+    r.n++;if(t>=since)r.sets7+=work(e).filter(x=>x.r||x.t||(e.kind==="cardio")).length});});
+  const list=Object.values(rows).sort((a,b)=>String(b.last).localeCompare(String(a.last)));const nm=MUSCLE_NAMES[k];
+  if(!list.length){const ideas=CATALOG.filter(x=>x.kind!=="cardio"&&(musclesFor({name:x.name,exId:x.id,kind:x.kind})[k]||0)>=1).slice(0,4);
+    return `<div class="md"><div class="md-h"><b>${nm}</b><span class="muted">Not trained yet</span></div>
+      ${ideas.length?`<div class="muted" style="font-size:13px">Exercises that work it:</div><div class="md-ideas">${ideas.map(x=>`<span>${esc(x.name)}</span>`).join("")}</div>`:""}</div>`}
+  const shown=S.mdAll?list:list.slice(0,6);
+  return `<div class="md"><div class="md-h"><b>${nm}</b><span class="muted">${list.length} exercise${list.length>1?"s":""} in your history</span></div>
+    ${shown.map(r=>`<button class="md-row" data-act="md-ex" data-id="${r.id}"><div class="grow"><div class="md-n">${esc(r.name)} <span class="md-role ${r.role}">${r.role}</span></div>
+      <div class="md-s">Last ${relDay(r.last)} · ${fmtShort(r.last)} · ${esc(entrySummary(r.lastE))}</div></div>
+      <div class="md-w">${r.sets7?`<b>${r.sets7}</b><span>this week</span>`:`<span>—</span>`}</div></button>`).join("")}
+    ${list.length>6?`<button class="btn sm ghost" data-act="md-all">${S.mdAll?"Show fewer":`Show all ${list.length}`}</button>`:""}</div>`}
 function heatMap(){const t=weekMuscles();const lvl=v=>v<=0?0:v<4?1:v<10?2:3;
   const svgBody=bodySVG(k=>lvl(t[k]));
   const hit=Object.keys(t).filter(k=>t[k]>0).sort((a,b)=>t[b]-t[a]);const miss=Object.keys(t).filter(k=>t[k]<=0);
   return `<div class="card stack" style="gap:10px"><div class="row"><span class="label grow">Muscles · last 7 days</span><span class="hm-key"><i class="mz l1"></i>1–3<i class="mz l2"></i>4–9<i class="mz l3"></i>10+ sets</span></div>
     <div class="b3" id="body3d"><div class="b3-stage"><div class="b3-slot"></div><div class="b3-fallback">${svgBody}</div></div>
       <div class="b3-bar"><span class="b3-tip" id="b3-tip">Drag to rotate · tap a muscle</span><span class="seg"><button data-act="b3-view" data-v="0">Front</button><button data-act="b3-view" data-v="3.14159">Back</button></span></div></div>
-    ${hit.length?`<div class="hm-list">${hit.map(k=>`<span><b>${trim1(t[k])}</b> ${MUSCLE_NAMES[k]}</span>`).join("")}</div>`:""}
+    <div id="b3-detail">${muscleDetail(S.selMuscle)}</div>
+    ${hit.length?`<div class="hm-list">${hit.map(k=>`<button class="hm-chip${S.selMuscle===k?" on":""}" data-act="md-muscle" data-v="${k}"><b>${trim1(t[k])}</b> ${MUSCLE_NAMES[k]}</button>`).join("")}</div>`:""}
     <div class="muted" style="font-size:13px">${hit.length?(miss.length?`Not trained yet: ${miss.map(k=>MUSCLE_NAMES[k]).join(", ")}.`:"Every muscle group trained this week."):"Log a workout and the muscles you trained light up here."}</div></div>`}
 const MOB={push:[["Band pull-aparts","2 × 15"],["Wall slides","2 × 10"],["Open-book thoracic rotation","8 / side"]],
   pull:[["Cat-cow","10 slow reps"],["Scap pull-ups","2 × 8"],["Thread the needle","6 / side"]],
@@ -1730,6 +1767,9 @@ document.addEventListener("click",ev=>{const b=ev.target.closest("[data-act]");i
       d.items.forEach(it=>{if(it.kind!=="cardio"&&!isTimed(it)&&it.repMin!=null)S.exProg=Object.assign({},S.exProg,{[it.exId]:{min:it.repMin,max:it.repMax,inc:it.inc||defaultIncKg()}})});
       saveProfile(true);toast(`${r.name} updated`)}S.routineDiff=null;renderSheet();break}
   case "rt-keep":S.routineDiff=null;renderSheet();toast("Routine left as is");break;
+  case "md-muscle":selectMuscle(S.selMuscle===v?null:v);if(S.selMuscle&&B3){const front=["chest","abs","quads","biceps","forearms","shoulders"].includes(v);B3.spinUntil=0;B3.target=front?0:Math.PI;kick3D()}break;
+  case "md-all":S.mdAll=!S.mdAll;{const d=document.getElementById("b3-detail");if(d)d.innerHTML=muscleDetail(S.selMuscle)}break;
+  case "md-ex":S.progEx=b.dataset.id;S.progMetric=null;render();setTimeout(()=>{const el=document.getElementById("prog-ex");if(el)el.closest(".field").scrollIntoView({behavior:"smooth",block:"start"})},60);break;
   case "b3-view":if(B3){B3.spinUntil=0;B3.target=+v;kick3D()}break;
   case "reload-app":flush().finally(()=>location.reload());break;
   case "pick-info":{const sh=S.sheet;sh.info=sh.info===b.dataset.id?null:b.dataset.id;$("#pick-list").innerHTML=pickerList(sh);break}
