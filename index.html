@@ -43,7 +43,8 @@ button,input,select,textarea{font:inherit;color:inherit}
 input,select,textarea{font-size:16px!important}
 .wname{font-size:28px!important}
 #plate-w{font-size:20px!important}
-html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%;touch-action:manipulation}
+button,a,input,select,textarea,label,.srow,.ex,.card{touch-action:manipulation}
 html,body{overflow-x:hidden}
 button{cursor:pointer}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
@@ -514,7 +515,7 @@ body:not(.authed) .tabs,body:not(.authed) .top .seg,body:not(.authed) .top .icon
 .rest-full.done .rf-l{color:var(--good)}
 
 /* PR moment: hazard-stripe sweep */
-.pr-sweep{position:fixed;inset:0;z-index:80;pointer-events:none;display:grid;place-items:center}
+.pr-sweep{position:fixed;inset:0;z-index:80;pointer-events:none;display:grid;place-items:center;overflow:hidden;contain:paint}
 .ps-band{position:absolute;left:-20%;right:-20%;top:50%;height:150px;margin-top:-75px;background:repeating-linear-gradient(-45deg,var(--gold) 0 26px,#111 26px 52px);transform:translateX(-120%) skewY(-6deg);animation:band 1s cubic-bezier(.2,.8,.2,1) forwards;box-shadow:0 10px 40px rgba(0,0,0,.35)}
 .ps-card{position:relative;background:#111;color:#fff;border:2px solid var(--gold);border-radius:14px;padding:14px 22px;text-align:center;transform:scale(.6);opacity:0;animation:card .45s .35s cubic-bezier(.2,1.4,.4,1) forwards;max-width:86vw}
 .ps-k{font-family:var(--font-display);font-weight:700;font-size:34px;letter-spacing:.04em;text-transform:uppercase;color:var(--gold);line-height:1}
@@ -601,7 +602,7 @@ body:not(.authed) .tabs,body:not(.authed) .top .seg,body:not(.authed) .top .icon
 <script>
 (function(){
 "use strict";
-const APP_VERSION="v17";const LB=0.45359237, MI=1.609344, LOCAL_KEY="ironbook-v1";
+const APP_VERSION="v18";const LB=0.45359237, MI=1.609344, LOCAL_KEY="ironbook-v1";
 const $=(s,r=document)=>r.querySelector(s);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
@@ -1948,6 +1949,11 @@ document.addEventListener("touchend",()=>{if(!sw)return;const r=sw.r;r.style.tra
 let toastT=null;function toast(msg,ms){const t=$("#toast");t.textContent=msg;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,ms||2600)}
 
 boot();
+(function(){const vm=document.querySelector('meta[name="viewport"]');if(!vm||!window.visualViewport)return;const base=vm.getAttribute("content");
+  const reset=()=>{if(visualViewport.scale<=1.01)return;const a=document.activeElement;if(a&&/INPUT|TEXTAREA|SELECT/.test(a.tagName))return;
+    vm.setAttribute("content",base.replace("initial-scale=1","initial-scale=1.0001"));setTimeout(()=>vm.setAttribute("content",base),60)};
+  document.addEventListener("focusout",()=>setTimeout(reset,250));window.addEventListener("orientationchange",()=>setTimeout(reset,400));
+  document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")setTimeout(reset,200)});visualViewport.addEventListener("resize",()=>{clearTimeout(reset.t);reset.t=setTimeout(reset,900)})})();
 if("serviceWorker" in navigator&&location.protocol==="https:"){
   const hadSW=!!navigator.serviceWorker.controller;
   navigator.serviceWorker.register("sw.js",{updateViaCache:"none"}).then(reg=>{
