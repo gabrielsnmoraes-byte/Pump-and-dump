@@ -622,7 +622,7 @@ body:not(.authed) .tabs,body:not(.authed) .top .seg,body:not(.authed) .top .icon
 <script>
 (function(){
 "use strict";
-const APP_VERSION="v22";const LB=0.45359237, MI=1.609344, LOCAL_KEY="ironbook-v1";
+const APP_VERSION="v23";const LB=0.45359237, MI=1.609344, LOCAL_KEY="ironbook-v1";
 const $=(s,r=document)=>r.querySelector(s);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
@@ -685,6 +685,8 @@ const MORE=[
  C("Jump Rope",null,false),C("Assault Bike",null,false),C("SkiErg",null,false),C("Sled Push",null,false),C("Rucking","Treadmill",true),
  C("Boxing / Bag Work",null,false),C("Sports",null,false),C("Incline Walk","Treadmill",true)
 ];
+MORE.push(L("Neck Curl","Back"),L("Neck Extension","Back"),L("Neck Side Raise","Back"),L("Hanging Hip Flexor Raise","Core"),L("Standing Hip Flexor Raise","Legs"),
+  L("Cable Hip Abduction","Legs"),L("Lateral Band Walk","Legs"),L("Clamshell","Legs"),L("Cable Hip Adduction","Legs"),L("Seated Tibialis Raise","Legs"),L("Banded Ankle Dorsiflexion","Legs"),L("Fire Hydrant","Legs"));
 MORE.forEach(x=>{if(!CATALOG.some(c=>c.id===x.id))CATALOG.push(x)});
 
 /* Equipment, worked out from the exercise name */
@@ -1103,53 +1105,81 @@ function shortGoal(e){const g=e.goal;if(!g||!e.prog)return "";const n=work(e).le
 
 /* ---------- Muscles: heat map + mobility ---------- */
 function musclesFor(e){const n=(e.name||"").toLowerCase();const m={};const add=(k,v)=>m[k]=Math.max(m[k]||0,v);
+  const def=exById(e.exId);if(def&&def.muscle){m[def.muscle]=1;return m}
   if(e.kind==="cardio")return m;
-  if(/nordic|glute-ham/.test(n)){add("hamstrings",1);add("glutes",.5)}
-  else if(/wrist curl/.test(n))add("forearms",1);
-  else if(/glute kickback|glute bridge|frog pump/.test(n)){add("glutes",1);add("hamstrings",.5)}
-  else if(/sissy/.test(n))add("quads",1);
-  else if(/tibialis/.test(n))add("calves",.5);
-  else if(/kettlebell swing/.test(n)){add("glutes",1);add("hamstrings",1);add("lowerback",.5)}
-  else if(/clean|snatch|thruster|burpee|turkish|wall ball|slam|battle rope|sandbag/.test(n)){add("quads",.75);add("glutes",.75);add("shoulders",.75);add("traps",.5);add("abs",.5)}
-  else if(/box jump|jump squat/.test(n)){add("quads",1);add("glutes",.5);add("calves",.5)}
-  else if(/superman|reverse hyper/.test(n)){add("lowerback",1);add("glutes",.5)}
-  else if(/good morning|stiff-leg/.test(n)){add("hamstrings",1);add("glutes",1);add("lowerback",.5)}
-  else if(/pullover/.test(n)){add("lats",1);add("chest",.5)}
-  else if(/svend|crossover|machine fly|cable fly/.test(n))add("chest",1);
-  else if(/landmine press|z press|push press|pike|handstand/.test(n)){add("shoulders",1);add("triceps",.5)}
-  else if(/front raise|y-raise|external rotation|pull-apart/.test(n))add("shoulders",1);
-  else if(/kickback|jm press|dip/.test(n)&&!/chest dip|weighted dip/.test(n))add("triceps",1);
-  else if(/weighted dip/.test(n)){add("chest",1);add("triceps",.5)}
-  else if(/woodchopper|rotation|side bend|bicycle|v-up|toes-to-bar|knee raise|mountain|bird dog|copenhagen/.test(n))add("abs",1);
-  else if(/overhead carry/.test(n)){add("shoulders",1);add("traps",.5);add("abs",.5)}
-  else if(/leg curl/.test(n))add("hamstrings",1);
-  else if(/leg extension/.test(n))add("quads",1);
-  else if(/calf/.test(n))add("calves",1);
-  else if(/romanian|good morning/.test(n)){add("hamstrings",1);add("glutes",1);add("lowerback",.5)}
-  else if(/deadlift|rack pull/.test(n)){add("lowerback",1);add("glutes",1);add("hamstrings",.5);add("traps",.5)}
-  else if(/back extension/.test(n)){add("lowerback",1);add("glutes",.5)}
-  else if(/hip thrust|abduction/.test(n)){add("glutes",1);if(/thrust/.test(n))add("hamstrings",.5)}
-  else if(/adduction/.test(n))add("quads",.5);
-  else if(/wall sit/.test(n))add("quads",1);
-  else if(/squat|leg press|lunge|step-up/.test(n)){add("quads",1);add("glutes",/lunge|split|bulgarian/.test(n)?1:.5)}
-  else if(/close-grip/.test(n)){add("triceps",1);add("chest",.5)}
-  else if(/pushdown|skull|triceps|bench dip/.test(n))add("triceps",1);
-  else if(/curl/.test(n)){add("biceps",1);if(/hammer/.test(n))add("forearms",.5)}
-  else if(/bench|chest press|push-up|chest dip/.test(n)){add("chest",1);add("triceps",.5);add("shoulders",/incline/.test(n)?.75:.5)}
-  else if(/fly|pec deck/.test(n))add("chest",1);
-  else if(/overhead press|shoulder press|arnold|military/.test(n)){add("shoulders",1);add("triceps",.5)}
-  else if(/lateral raise/.test(n))add("shoulders",1);
-  else if(/upright row/.test(n)){add("shoulders",1);add("traps",.5)}
-  else if(/rear delt|face pull/.test(n)){add("shoulders",1);add("traps",.5)}
-  else if(/shrug/.test(n))add("traps",1);
-  else if(/pull-up|chin-up|pulldown|straight-arm/.test(n)){add("lats",1);add("biceps",.5)}
-  else if(/row/.test(n)){add("lats",1);add("traps",.5);add("biceps",.5)}
-  else if(/dead hang/.test(n)){add("forearms",1);add("lats",.5)}
-  else if(/farmer|suitcase/.test(n)){add("forearms",1);add("traps",.5);if(/suitcase/.test(n))add("abs",.5)}
-  else if(/plank|hollow|l-sit|crunch|leg raise|rollout|sit-up|twist|pallof|dead bug/.test(n))add("abs",1);
-  else{const g=(exById(e.exId)||{}).group;({Chest:()=>add("chest",1),Back:()=>add("lats",1),Legs:()=>add("quads",1),Shoulders:()=>add("shoulders",1),Arms:()=>{add("biceps",.5);add("triceps",.5)},Core:()=>add("abs",1),"Full body":()=>{add("quads",.5);add("glutes",.5);add("shoulders",.5)}}[g]||(()=>{}))()}
+  const R=(re,obj)=>{if(re.test(n)){Object.keys(obj).forEach(k=>add(k,obj[k]));return true}return false};
+  R(/neck/,{neck:1})||
+  R(/nordic|glute-ham/,{hamstrings:1,glutes:.5})||
+  R(/wrist curl/,{forearms:1})||
+  R(/tibialis|dorsiflex/,{shins:1})||
+  R(/abduction|clamshell|lateral band walk|fire hydrant/,{abductors:1,glutes:.5})||
+  R(/copenhagen/,{adductors:1,obliques:.5})||
+  R(/adduction/,{adductors:1})||
+  R(/hip flexor|psoas/,{hipflexors:1,abs:.5})||
+  R(/glute kickback|glute bridge|frog pump/,{glutes:1,hamstrings:.5})||
+  R(/sissy/,{quads:1})||
+  R(/kettlebell swing/,{glutes:1,hamstrings:1,lowerback:.5})||
+  R(/power clean|hang clean|clean and jerk|snatch/,{traps:1,glutes:1,quads:.5,hamstrings:.5})||
+  R(/clean and press/,{glutes:1,frontdelts:1,quads:.5})||
+  R(/thruster/,{quads:1,frontdelts:1,triceps:.5})||
+  R(/wall ball/,{quads:1,frontdelts:.5})||
+  R(/burpee/,{chest:.5,quads:.5,abs:.5})||
+  R(/turkish/,{obliques:1,sidedelts:.5,abs:.5})||
+  R(/slam/,{abs:1,lats:.5})||
+  R(/battle rope/,{frontdelts:1,abs:.5})||
+  R(/sandbag/,{traps:.5,abs:.5,forearms:.5,glutes:.5})||
+  R(/box jump|jump squat/,{quads:1,glutes:.5,calves:.5})||
+  R(/superman|reverse hyper|bird dog/,{lowerback:1,glutes:.5})||
+  R(/good morning|stiff-leg|romanian/,{hamstrings:1,glutes:1,lowerback:.5})||
+  R(/sumo deadlift/,{glutes:1,quads:.5,adductors:.5,lowerback:.5})||
+  R(/trap bar/,{quads:1,glutes:1,lowerback:.5})||
+  R(/deadlift|rack pull/,{lowerback:1,glutes:1,hamstrings:.5,traps:.5,quads:.5})||
+  R(/back extension/,{lowerback:1,glutes:.5})||
+  R(/hip thrust/,{glutes:1,hamstrings:.5})||
+  R(/leg curl/,{hamstrings:1})||
+  R(/leg extension/,{quads:1})||
+  R(/calf/,{calves:1})||
+  R(/wall sit/,{quads:1})||
+  R(/lateral lunge/,{adductors:1,quads:.5,glutes:.5})||
+  R(/lunge|split squat|step-up/,{quads:1,glutes:1,adductors:.5})||
+  R(/squat|leg press/,{quads:1,glutes:.5,adductors:.5})||
+  R(/pullover/,{lats:1,chest:.5})||
+  R(/close-grip/,{triceps:1,chest:.5})||
+  R(/pushdown|skull|triceps|kickback|jm press|bench dip|triceps dip/,{triceps:1})||
+  R(/hammer|reverse curl|zottman/,{biceps:1,forearms:.5})||
+  R(/curl/,{biceps:1})||
+  R(/weighted dip|chest dip/,{chest:1,triceps:.5,frontdelts:.5})||
+  R(/fly|pec deck|crossover|svend/,{chest:1})||
+  R(/push press/,{frontdelts:1,sidedelts:.5,triceps:.5,quads:.5})||
+  R(/overhead press|shoulder press|arnold|military|landmine press|z press|pike|handstand/,{frontdelts:1,sidedelts:.5,triceps:.5})||
+  R(/bench|chest press|push-up|floor press/,{chest:1,triceps:.5,frontdelts:.5})||
+  R(/lateral raise/,{sidedelts:1})||
+  R(/upright row/,{sidedelts:1,traps:.5})||
+  R(/front raise/,{frontdelts:1})||
+  R(/y-raise/,{upperback:1,reardelts:.5})||
+  R(/face pull/,{reardelts:1,upperback:.5,traps:.5})||
+  R(/rear delt|reverse pec deck|pull-apart|external rotation/,{reardelts:1,upperback:.5})||
+  R(/shrug/,{traps:1})||
+  R(/overhead carry/,{traps:1,frontdelts:.5,abs:.5})||
+  R(/suitcase/,{forearms:1,obliques:.5,traps:.5})||
+  R(/farmer/,{forearms:1,traps:.5})||
+  R(/dead hang/,{forearms:1,lats:.5})||
+  R(/straight-arm/,{lats:1})||
+  R(/pull-up|chin-up|pulldown/,{lats:1,biceps:.5,upperback:.5})||
+  R(/row/,{lats:1,upperback:.5,biceps:.5,reardelts:.5})||
+  R(/woodchopper|rotation|side bend|russian twist|pallof|bicycle|side plank/,{obliques:1,abs:.5})||
+  R(/v-up|toes-to-bar|knee raise|leg raise|captain|l-sit|mountain/,{abs:1,hipflexors:.5})||
+  R(/sit-up/,{abs:1,hipflexors:.5})||
+  R(/plank|hollow|crunch|rollout|dead bug/,{abs:1})||
+  (()=>{const g=(def&&def.group)||"";({Chest:()=>add("chest",1),Back:()=>add("lats",1),Legs:()=>add("quads",1),Shoulders:()=>add("sidedelts",1),Arms:()=>{add("biceps",.5);add("triceps",.5)},Core:()=>add("abs",1),"Full body":()=>{add("quads",.5);add("glutes",.5);add("frontdelts",.5)}}[g]||(()=>{}))()})();
   return m}
-const MUSCLE_NAMES={chest:"Chest",shoulders:"Shoulders",biceps:"Biceps",triceps:"Triceps",forearms:"Forearms",abs:"Abs",quads:"Quads",hamstrings:"Hamstrings",glutes:"Glutes",calves:"Calves",lats:"Lats",traps:"Traps",lowerback:"Lower back"};
+const MUSCLE_NAMES={chest:"Chest",frontdelts:"Front delts",sidedelts:"Side delts",reardelts:"Rear delts",biceps:"Biceps",triceps:"Triceps",forearms:"Forearms",
+  abs:"Abs",obliques:"Obliques",neck:"Neck",traps:"Traps",upperback:"Upper back",lats:"Lats",lowerback:"Lower back",
+  glutes:"Glutes",hipflexors:"Hip flexors",abductors:"Outer hips",adductors:"Inner thighs",quads:"Quads",hamstrings:"Hamstrings",calves:"Calves",shins:"Shins & ankles"};
+const MUSCLE_AREAS=[["Chest & shoulders",["chest","frontdelts","sidedelts","reardelts"]],["Arms",["biceps","triceps","forearms"]],["Core",["abs","obliques"]],
+  ["Back & neck",["neck","traps","upperback","lats","lowerback"]],["Hips & glutes",["glutes","hipflexors","abductors","adductors"]],["Legs",["quads","hamstrings","calves","shins"]]];
+const MUSCLE_GROUP={chest:"Chest",frontdelts:"Shoulders",sidedelts:"Shoulders",reardelts:"Shoulders",biceps:"Arms",triceps:"Arms",forearms:"Arms",abs:"Core",obliques:"Core",
+  neck:"Back",traps:"Back",upperback:"Back",lats:"Back",lowerback:"Back",glutes:"Legs",hipflexors:"Legs",abductors:"Legs",adductors:"Legs",quads:"Legs",hamstrings:"Legs",calves:"Legs",shins:"Legs"};
 function weekSets(){const since=Date.now()-7*864e5;const t={};Object.keys(MUSCLE_NAMES).forEach(k=>t[k]={d:0,a:0});
   S.workouts.forEach(w=>{if(new Date(w.date).getTime()<since)return;(w.entries||[]).forEach(e=>{const n=work(e).filter(s=>s.r||s.t).length;if(!n)return;const m=musclesFor(e);Object.keys(m).forEach(k=>{if(m[k]>=1)t[k].d+=n;else if(m[k]>0)t[k].a+=n})})});return t}
 const setScore=x=>x.d+x.a*0.5;
@@ -1158,7 +1188,8 @@ function setsText(x){if(!x||(!x.d&&!x.a))return "no sets in the last 7 days";con
   return `${trim1(t)} set${t===1?"":"s"} in the last 7 days`+(x.a?` <span class="hm-a">(${x.d} direct + ${x.a} assist)</span>`:"")}
 function weekMuscles(){const since=Date.now()-7*864e5;const t={};Object.keys(MUSCLE_NAMES).forEach(k=>t[k]=0);
   S.workouts.forEach(w=>{if(new Date(w.date).getTime()<since)return;(w.entries||[]).forEach(e=>{const n=work(e).filter(s=>s.r||s.t).length;if(!n)return;const m=musclesFor(e);Object.keys(m).forEach(k=>t[k]+=n*m[k])})});return t}
-function bodySVG(L,cls){const f=k=>`class="mz l${L(k)}"`;
+function bodySVG(L0,cls){const AL={shoulders:["frontdelts","sidedelts","reardelts"],abs:["abs","obliques"],traps:["traps","upperback","neck"],glutes:["glutes","abductors"],quads:["quads","adductors","hipflexors"],calves:["calves","shins"]};
+  const L=k=>Math.max(...(AL[k]||[k]).map(x=>L0(x)||0));const f=k=>`class="mz l${L(k)}"`;
   const front=`<g><circle cx="60" cy="18" r="12" class="mb"/><rect x="54" y="28" width="12" height="10" class="mb"/><rect x="36" y="38" width="48" height="80" rx="16" class="mb"/>
     <rect x="40" y="112" width="40" height="22" rx="8" class="mb"/><ellipse cx="22" cy="132" rx="5" ry="6" class="mb"/><ellipse cx="98" cy="132" rx="5" ry="6" class="mb"/>
     <circle cx="33" cy="50" r="10" ${f("shoulders")}/><circle cx="87" cy="50" r="10" ${f("shoulders")}/>
@@ -1196,7 +1227,7 @@ function loadThree(){if(window.THREE)return Promise.resolve();if(loadThree.p)ret
   loadThree.p=new Promise((res,rej)=>{const s=document.createElement("script");s.src="vendor/three.min.js";s.onload=res;s.onerror=()=>{loadThree.p=null;rej()};document.head.appendChild(s)});return loadThree.p}
 function webglOK(){try{const c=document.createElement("canvas");return !!(c.getContext("webgl2")||c.getContext("webgl"))}catch(e){return false}}
 function isDark(){const t=document.documentElement.dataset.theme;return t?t==="dark":matchMedia("(prefers-color-scheme: dark)").matches}
-const BODY_KEYS=[null,"chest","shoulders","biceps","triceps","forearms","abs","quads","hamstrings","glutes","calves","lats","traps","lowerback"];
+const BODY_KEYS=[null,"chest","shoulders","biceps","triceps","forearms","abs","quads","hamstrings","glutes","calves","lats","traps","lowerback","neck","obliques","upperback","adductors","abductors","hipflexors","shins","frontdelts","sidedelts","reardelts"];
 function loadBody(){if(loadBody.p)return loadBody.p;loadBody.p=fetch("models/body.bin").then(r=>{if(!r.ok)throw new Error("model");return r.arrayBuffer()}).then(buf=>{
   const dv=new DataView(buf);if(String.fromCharCode(dv.getUint8(0),dv.getUint8(1),dv.getUint8(2),dv.getUint8(3))!=="PDB1")throw new Error("model");
   const nV=dv.getUint32(4,true),nF=dv.getUint32(8,true);const f=new Float32Array(buf,12,6);let o=36;
@@ -1301,7 +1332,7 @@ const MOB={push:[["Band pull-aparts","2 × 15"],["Wall slides","2 × 10"],["Open
 const MOB_LABEL={push:"pressing",pull:"pulling",squat:"squats and legs",hinge:"hips and hamstrings",arms:"arms",core:"core",run:"running and cardio"};
 function mobilityFor(entries){const t={};Object.keys(MUSCLE_NAMES).forEach(k=>t[k]=0);let run=0;
   entries.forEach(e=>{if(e.kind==="cardio"){run+=3;return}const m=musclesFor(e);Object.keys(m).forEach(k=>t[k]+=m[k])});
-  const sc={push:t.chest+t.shoulders+t.triceps*.5,pull:t.lats+t.traps+t.biceps*.5,squat:t.quads,hinge:t.hamstrings+t.glutes+t.lowerback,arms:(t.biceps+t.triceps)*.6,core:t.abs*.8,run};
+  const sc={push:t.chest+t.frontdelts+t.sidedelts+t.triceps*.5,pull:t.lats+t.traps+t.upperback+t.reardelts+t.biceps*.5,squat:t.quads+t.adductors*.5,hinge:t.hamstrings+t.glutes+t.lowerback+t.abductors*.5+t.hipflexors*.5,arms:(t.biceps+t.triceps)*.6,core:(t.abs+t.obliques)*.8,run};
   const cats=Object.keys(sc).filter(k=>sc[k]>0).sort((a,b)=>sc[b]-sc[a]);if(!cats.length)return null;
   const drills=cats.length===1?MOB[cats[0]].slice(0,3):MOB[cats[0]].slice(0,2).concat(MOB[cats[1]].slice(0,1));
   return {cats:cats.slice(0,2),drills}}
@@ -1637,7 +1668,8 @@ function renderSheet(){const el=$("#sheet");const sh=S.sheet;if(!sh){el.innerHTM
 function pickerBody(sh){
   if(sh.creating)return `<div class="field"><label class="label" for="cx-name">Exercise name</label><input class="in" id="cx-name" placeholder="e.g. Landmine Press"></div>
     <div class="field"><span class="label">Type</span><div class="seg" role="group"><button data-act="cx-kind" data-v="lift" aria-pressed="${sh.cxKind==="lift"||!sh.cxKind}">Reps</button><button data-act="cx-kind" data-v="timed" aria-pressed="${sh.cxKind==="timed"}">Timed hold</button><button data-act="cx-kind" data-v="cardio" aria-pressed="${sh.cxKind==="cardio"}">Cardio</button></div></div>
-    ${sh.cxKind==="cardio"?"":`<div class="field"><label class="label" for="cx-grp">Muscle group</label><select class="in" id="cx-grp">${GROUPS.filter(g=>!["All","Recent","Cardio","Custom"].includes(g)).map(g=>`<option>${g}</option>`).join("")}</select></div>`}
+    ${sh.cxKind==="cardio"?"":`<div class="field"><label class="label" for="cx-mus">Main muscle worked</label><select class="in" id="cx-mus" style="text-align:left;padding:11px">${MUSCLE_AREAS.map(([a,ks])=>`<optgroup label="${a}">${ks.map(k=>`<option value="${k}">${MUSCLE_NAMES[k]}</option>`).join("")}</optgroup>`).join("")}</select>
+      <div class="muted" style="font-size:12.5px">Used for the 3D muscle map and the exercise filters.</div></div>`}
     <div class="row"><button class="btn" data-act="cx-cancel">Back</button><button class="btn primary grow" data-act="cx-save">Create and add</button></div>`;
   return `<input class="in" id="pick-q" data-f="pickq" type="search" placeholder="Search exercises" value="${esc(sh.q)}" style="text-align:left;padding:11px" autocomplete="off">
    <div class="chips" role="group" aria-label="Muscle group">${GROUPS.map(g=>`<button class="chip" data-act="pick-group" data-v="${g}" aria-pressed="${sh.group===g}">${g}</button>`).join("")}</div>
@@ -1745,7 +1777,7 @@ document.addEventListener("click",ev=>{const b=ev.target.closest("[data-act]");i
       d.items.forEach(it=>{if(it.kind!=="cardio"&&!isTimed(it)&&it.repMin!=null)S.exProg=Object.assign({},S.exProg,{[it.exId]:{min:it.repMin,max:it.repMax,inc:it.inc||defaultIncKg()}})});
       saveProfile(true);toast(`${r.name} updated`)}S.routineDiff=null;renderSheet();break}
   case "rt-keep":S.routineDiff=null;renderSheet();toast("Routine left as is");break;
-  case "md-muscle":selectMuscle(S.selMuscle===v?null:v);if(S.selMuscle&&B3){const front=["chest","abs","quads","biceps","forearms","shoulders"].includes(v);B3.spinUntil=0;B3.target=front?0:Math.PI;kick3D()}break;
+  case "md-muscle":selectMuscle(S.selMuscle===v?null:v);if(S.selMuscle&&B3){const front=["chest","abs","obliques","quads","biceps","forearms","frontdelts","sidedelts","hipflexors","adductors","shins","neck"].includes(v);B3.spinUntil=0;B3.target=front?0:Math.PI;kick3D()}break;
   case "md-all":S.mdAll=!S.mdAll;{const d=document.getElementById("b3-detail");if(d)d.innerHTML=muscleDetail(S.selMuscle)}break;
   case "md-ex":S.progEx=b.dataset.id;S.progMetric=null;render();setTimeout(()=>{const el=document.getElementById("prog-ex");if(el)el.closest(".field").scrollIntoView({behavior:"smooth",block:"start"})},60);break;
   case "b3-view":if(B3){B3.spinUntil=0;B3.target=+v;kick3D()}break;
@@ -1760,11 +1792,11 @@ document.addEventListener("click",ev=>{const b=ev.target.closest("[data-act]");i
     S.routineDraft=c;S.rtErr=null;S.rtOpen=-1;S.sheet={type:"routine"};renderSheet();toast("Copied. Rename it and adjust, then save.");break}
   case "save-as-r":{const w=S.workouts.find(x=>x.id===b.dataset.id);if(!w)break;S.routineDraft=routineFromWorkout(w);S.rtErr=null;S.rtOpen=-1;S.sheet={type:"routine"};render();toast("Check the details, then tap Save routine.");break}
   case "cx-new":S.sheet.creating=true;S.sheet.cxKind="lift";S.sheet.cxName=S.sheet.q;renderSheet();{const n=$("#cx-name");if(n)n.value=S.sheet.q||""}break;
-  case "cx-kind":{const n=$("#cx-name");S.sheet.cxName=n?n.value:"";S.sheet.cxKind=v;renderSheet();const n2=$("#cx-name");if(n2)n2.value=S.sheet.cxName||"";break}
+  case "cx-kind":{const n=$("#cx-name");S.sheet.cxName=n?n.value:"";const mu=$("#cx-mus");if(mu)S.sheet.cxMus=mu.value;S.sheet.cxKind=v;renderSheet();const n2=$("#cx-name");if(n2)n2.value=S.sheet.cxName||"";const mu2=$("#cx-mus");if(mu2&&S.sheet.cxMus)mu2.value=S.sheet.cxMus;break}
   case "cx-cancel":S.sheet.creating=false;renderSheet();break;
   case "cx-save":{const name=($("#cx-name").value||"").trim();if(!name){toast("Give the exercise a name.");break}
     if(allEx().some(e=>e.name.toLowerCase()===name.toLowerCase())){toast("That exercise already exists. Search for it instead.");break}
-    const kind=S.sheet.cxKind==="cardio"?"cardio":"lift";const ex={id:"c-"+uid(),name,kind,custom:true,group:kind==="cardio"?"Cardio":($("#cx-grp")||{}).value||"Other"};S.sheet.cxDone=true;
+    const kind=S.sheet.cxKind==="cardio"?"cardio":"lift";const mk=kind==="cardio"?null:(($("#cx-mus")||{}).value||null);const ex={id:"c-"+uid(),name,kind,custom:true,group:kind==="cardio"?"Cardio":(MUSCLE_GROUP[mk]||"Other")};if(mk)ex.muscle=mk;S.sheet.cxDone=true;
     if(kind==="cardio"){ex.indoor="Indoor";ex.incline=true}if(S.sheet.cxKind==="timed")ex.timed=true;S.customEx.push(ex);saveProfile();if(/^swap/.test(S.sheet.target)){swapTo(ex);break}S.sheet.creating=false;S.sheet.sel=(S.sheet.sel||[]).concat(ex.id);S.sheet.q="";renderSheet();toast(`${ex.name} created and selected`);break}
   case "rm-ex":S.menu=null;S.confirm=null;if(hold)stopHold(false);a.entries.splice(ei,1);saveProfile();render();break;
   case "add-set":{const e=a.entries[ei];const l=e.sets[e.sets.length-1]||{};e.sets.push(isTimed(e)?{w:l.w??null,t:l.t??null,done:false}:{w:l.w??null,r:l.r??null,done:false});saveProfile();render();break}

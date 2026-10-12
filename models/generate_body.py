@@ -27,7 +27,7 @@ prims=[]  # (label, k, fn)
 def core(k,fn):prims.append((None,k,fn))
 def mus(lbl,k,fn):prims.append((lbl,k,fn))
 core(0.0,lambda p:ell(p,(0,1.705,0.012),(0.08,0.106,0.095)))                       # head
-core(0.05,lambda p:rc(p,(0,1.49,-0.014),(0,1.64,0.0),0.082,0.06))                 # neck
+mus("neck",0.05,lambda p:rc(p,(0,1.49,-0.014),(0,1.64,0.0),0.082,0.06))                 # neck
 core(0.06,lambda p:ell(p,(0,1.29,-0.006),(0.168,0.205,0.116)))                     # ribcage
 core(0.06,lambda p:ell(p,(0,1.075,0.0),(0.128,0.16,0.098)))                        # abdomen
 core(0.06,lambda p:ell(p,(0,0.93,-0.006),(0.158,0.105,0.108)))                     # pelvis
@@ -41,13 +41,16 @@ for s in (-1,1):
     core(0.05,lambda p,Hh=Hh,K=K:rc(p,Hh,K,0.085,0.052))
     core(0.035,lambda p,K=K,A=A:rc(p,K,A,0.055,0.032))
     core(0.025,lambda p,s=s:ell(p,(s*0.122,0.035,0.05),(0.046,0.032,0.11)))
-    core(0.045,lambda p,Hh=Hh,K=K,s=s:ell(p,tuple(L(Hh,K,0.32)+np.array([-s*0.038,0,-0.005])),(0.048,0.13,0.055)))   # adductors
+    mus("adductors",0.045,lambda p,Hh=Hh,K=K,s=s:ell(p,tuple(L(Hh,K,0.32)+np.array([-s*0.038,0,-0.005])),(0.048,0.13,0.055)))
+    mus("abductors",0.04,lambda p,s=s:ell(p,(s*0.142,0.955,-0.018),(0.05,0.07,0.055)))
+    mus("hipflexors",0.03,lambda p,s=s:ell(p,(s*0.085,0.935,0.07),(0.04,0.06,0.03)))
+    mus("shins",0.025,lambda p,K=K,A=A,s=s:belly(p,L(K,A,0.1),L(K,A,0.72),0.018,0.03,np.array([s*0.012,0,0.03])))
     # muscles
     mus("chest",0.035,lambda p,s=s:ell(p,(s*0.085,1.345,0.074),(0.112,0.082,0.056)))
     mus("shoulders",0.03,lambda p,s=s:ell(p,(s*0.232,1.405,0.0),(0.08,0.09,0.082)))
     mus("traps",0.035,lambda p,s=s:ell(p,(s*0.068,1.478,-0.036),(0.088,0.056,0.056)))
     mus("lats",0.045,lambda p,s=s:ell(p,(s*0.148,1.24,-0.042),(0.07,0.16,0.05)))
-    mus("abs",0.035,lambda p,s=s:ell(p,(s*0.12,1.05,0.034),(0.046,0.1,0.056)))           # obliques
+    mus("obliques",0.035,lambda p,s=s:ell(p,(s*0.12,1.05,0.034),(0.046,0.1,0.056)))
     for y,z in ((1.19,0.088),(1.11,0.092),(1.03,0.09)):
         mus("abs",0.02,lambda p,s=s,y=y,z=z:ell(p,(s*0.037,y,z-0.006),(0.036,0.036,0.018)))
     mus("lowerback",0.022,lambda p,s=s:ell(p,(s*0.04,1.02,-0.074),(0.035,0.1,0.034)))
@@ -59,7 +62,7 @@ for s in (-1,1):
     mus("quads",0.025,lambda p,Hh=Hh,K=K,s=s:ell(p,tuple(L(Hh,K,0.83)+np.array([-s*0.035,0,0.03])),(0.037,0.054,0.036)))   # teardrop
     mus("hamstrings",0.035,lambda p,Hh=Hh,K=K:belly(p,L(Hh,K,0.14),L(Hh,K,0.93),0.036,0.07,np.array([0,0,-0.04])))
     mus("calves",0.025,lambda p,K=K,A=A:belly(p,L(K,A,0.04),L(K,A,0.58),0.032,0.068,np.array([0,0,-0.034])))
-mus("traps",0.035,lambda p:rc(p,(0,1.44,-0.062),(0,1.19,-0.09),0.075,0.012))
+mus("upperback",0.035,lambda p:rc(p,(0,1.4,-0.07),(0,1.2,-0.09),0.07,0.014))
 D=None
 for lbl,k,fn in prims:
     d=fn(P).astype(np.float32)
@@ -74,7 +77,7 @@ v,f,_=s.getMesh()
 v=v.astype(np.float32);f=f.astype(np.int64)
 print("simplified verts",len(v),"faces",len(f))
 # labels: nearest muscle primitive by its own (un-blended) distance
-names=["chest","shoulders","biceps","triceps","forearms","abs","quads","hamstrings","glutes","calves","lats","traps","lowerback"]
+names=["chest","shoulders","biceps","triceps","forearms","abs","quads","hamstrings","glutes","calves","lats","traps","lowerback","neck","obliques","upperback","adductors","abductors","hipflexors","shins","frontdelts","sidedelts","reardelts"]
 pv=(v[:,0],v[:,1],v[:,2])
 best=np.full(len(v),9.0,np.float32);lab=np.zeros(len(v),np.uint8)
 second=np.full(len(v),9.0,np.float32)
@@ -84,11 +87,17 @@ for lbl,k,fn in prims:
     d=fn(pv).astype(np.float32)
     per[lbl]=np.minimum(per.get(lbl,np.full(len(v),9.0,np.float32)),d)
 for i,name in enumerate(names):
+    if name not in per: continue
     d=per[name];m=d<best
     second=np.where(m,best,np.minimum(second,d));lab=np.where(m,i+1,lab).astype(np.uint8);best=np.where(m,d,best)
 def ss(a,b,x):t=np.clip((x-a)/(b-a),0,1);return t*t*(3-2*t)
 w=ss(0.03,0.004,best)*(0.55+0.45*ss(0.0,0.012,second-best))            # fade at outer edges and at borders between muscles
 lab=np.where(w>0.03,lab,0).astype(np.uint8)
+# split shoulders into front / side / rear heads using position relative to each delt centre
+sh=lab==2
+dz=v[:,2]-0.0
+front=sh&(dz>0.028);rear=sh&(dz<-0.028);side=sh&~front&~rear
+lab=lab.copy();lab[front]=names.index("frontdelts")+1;lab[rear]=names.index("reardelts")+1;lab[side]=names.index("sidedelts")+1
 wq=np.clip(np.round(w*255),0,255).astype(np.uint8)
 mn=v.min(0);mx=v.max(0);sc=(mx-mn)
 q=np.clip(np.round((v-mn)/sc*65535),0,65535).astype(np.uint16)
@@ -99,5 +108,5 @@ with open(sys.argv[2] if len(sys.argv)>2 else "body.bin","wb") as fh:
     if len(v)%2: fh.write(b"\0\0")   # keep alignment
     pad=(4+8+24+len(v)*6+len(v)*2+(2 if len(v)%2 else 0))%2
     fh.write(f.astype(np.uint16).tobytes())
-print("labels:",{names[i]:int((lab==i+1).sum()) for i in range(13)})
+print("labels:",{names[i]:int((lab==i+1).sum()) for i in range(len(names))})
 print("done",round(time.time()-t0,1),"s")
