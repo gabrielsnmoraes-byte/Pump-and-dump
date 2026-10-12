@@ -622,7 +622,7 @@ body:not(.authed) .tabs,body:not(.authed) .top .seg,body:not(.authed) .top .icon
 <script>
 (function(){
 "use strict";
-const APP_VERSION="v21";const LB=0.45359237, MI=1.609344, LOCAL_KEY="ironbook-v1";
+const APP_VERSION="v22";const LB=0.45359237, MI=1.609344, LOCAL_KEY="ironbook-v1";
 const $=(s,r=document)=>r.querySelector(s);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
@@ -1196,71 +1196,34 @@ function loadThree(){if(window.THREE)return Promise.resolve();if(loadThree.p)ret
   loadThree.p=new Promise((res,rej)=>{const s=document.createElement("script");s.src="vendor/three.min.js";s.onload=res;s.onerror=()=>{loadThree.p=null;rej()};document.head.appendChild(s)});return loadThree.p}
 function webglOK(){try{const c=document.createElement("canvas");return !!(c.getContext("webgl2")||c.getContext("webgl"))}catch(e){return false}}
 function isDark(){const t=document.documentElement.dataset.theme;return t?t==="dark":matchMedia("(prefers-color-scheme: dark)").matches}
-function build3D(){const T=THREE;
+const BODY_KEYS=[null,"chest","shoulders","biceps","triceps","forearms","abs","quads","hamstrings","glutes","calves","lats","traps","lowerback"];
+function loadBody(){if(loadBody.p)return loadBody.p;loadBody.p=fetch("models/body.bin").then(r=>{if(!r.ok)throw new Error("model");return r.arrayBuffer()}).then(buf=>{
+  const dv=new DataView(buf);if(String.fromCharCode(dv.getUint8(0),dv.getUint8(1),dv.getUint8(2),dv.getUint8(3))!=="PDB1")throw new Error("model");
+  const nV=dv.getUint32(4,true),nF=dv.getUint32(8,true);const f=new Float32Array(buf,12,6);let o=36;
+  const q=new Uint16Array(buf,o,nV*3);o+=nV*6;const lab=new Uint8Array(buf,o,nV);o+=nV;const wt=new Uint8Array(buf,o,nV);o+=nV;if(nV%2)o+=2;
+  const idx=new Uint16Array(buf,o,nF*3);const pos=new Float32Array(nV*3);
+  for(let i=0;i<nV;i++)for(let a=0;a<3;a++)pos[i*3+a]=f[a]+q[i*3+a]/65535*f[3+a];
+  return {pos,lab,wt,idx}}).catch(e=>{loadBody.p=null;throw e});return loadBody.p}
+function build3D(data){const T=THREE;
   const renderer=new T.WebGLRenderer({antialias:true,alpha:true,powerPreference:"low-power"});renderer.setPixelRatio(Math.min(2,window.devicePixelRatio||1));
   renderer.domElement.className="b3-canvas";
-  const scene=new T.Scene();const camera=new T.PerspectiveCamera(27,1,0.1,30);camera.position.set(0,1.0,4.5);camera.lookAt(0,0.9,0);
-  scene.add(new T.HemisphereLight(0xe6eeff,0x161a20,0.6));
-  const key=new T.DirectionalLight(0xffffff,1.0);key.position.set(2.4,3.2,3.4);scene.add(key);
+  const scene=new T.Scene();const camera=new T.PerspectiveCamera(26,1,0.1,30);camera.position.set(0,0.98,4.55);camera.lookAt(0,0.9,0);
+  scene.add(new T.HemisphereLight(0xe6eeff,0x14181d,0.55));
+  const key=new T.DirectionalLight(0xffffff,1.05);key.position.set(1.6,3.2,3.2);scene.add(key);
   const fill=new T.DirectionalLight(0x8fa8ff,0.3);fill.position.set(-3,1.2,2);scene.add(fill);
-  const rim=new T.DirectionalLight(0xffb27a,0.75);rim.position.set(-1.6,2.6,-3.6);scene.add(rim);
-  const rim2=new T.DirectionalLight(0x9fc2ff,0.45);rim2.position.set(2,1.5,-3);scene.add(rim2);
+  const top=new T.DirectionalLight(0xffffff,0.35);top.position.set(0,5,0.6);scene.add(top);
+  const rim=new T.DirectionalLight(0xffb27a,0.8);rim.position.set(-1.8,2.6,-3.4);scene.add(rim);
+  const rim2=new T.DirectionalLight(0x9fc2ff,0.5);rim2.position.set(2,1.6,-3);scene.add(rim2);
   const root=new T.Group();scene.add(root);
-  const SPH=()=>new T.SphereGeometry(1,48,32);
-  const lathe=(prof,seg,rad)=>{const pts=new T.SplineCurve(prof.map(([y,r])=>new T.Vector2(r,y))).getPoints(seg||96).map(v=>new T.Vector2(Math.max(0.0005,v.x),v.y)).reverse();return new T.LatheGeometry(pts,rad||72)};
-  const mat=new T.MeshStandardMaterial({vertexColors:true,roughness:.5,metalness:.06});
-  const meshes=[];
-  const add=(geo,parent,pos,scale,rot,cls)=>{const m=new T.Mesh(geo,mat);m.position.set(pos[0],pos[1],pos[2]);if(scale)m.scale.set(scale[0],scale[1],scale[2]);if(rot)m.rotation.set(rot[0]||0,rot[1]||0,rot[2]||0);m.userData.cls=cls||(()=>null);parent.add(m);meshes.push(m);return m};
-  const sm=(a,b,x)=>{const t=Math.max(0,Math.min(1,(x-a)/(b-a)));return t*t*(3-2*t)};
-  const best=(c)=>{let k=null,w=0;for(const key in c){if(c[key]>w){w=c[key];k=key}}return w>0.04?[k,w]:[null,0]};
-  // torso: broad shoulders, wide lats, tight waist
-  add(lathe([[1.545,0.0],[1.54,0.07],[1.5,0.088],[1.465,0.16],[1.43,0.25],[1.37,0.262],[1.29,0.25],[1.19,0.215],[1.1,0.168],[1.02,0.142],[0.96,0.152],[0.9,0.172],[0.84,0.152],[0.8,0.09],[0.785,0.0]],180,128),root,[0,0,0],[1,1,0.6],null,(p,n)=>{
-    const x=Math.abs(p.x),y=p.y,fz=sm(-0.005,0.03,p.z),bz=sm(-0.005,0.03,-p.z);
-    const pec=((x-0.1)/0.125)**2+((y-1.325)/0.1)**2;
-    const groove=(0.5+0.5*sm(0.05,0.45,Math.abs(Math.sin(Math.PI*(y-0.975)/0.083))))*sm(0.003,0.013,x);
-    const tw=0.022+Math.max(0,y-1.14)*0.68;                       // trapezius kite, wide at the neck, point at mid-back
-    const trap=bz*sm(1.12,1.18,y)*sm(tw+0.012,tw-0.018,x);
-    const latIn=0.03+Math.max(0,y-1.06)*0.32;                     // lats wrap around the traps
-    const spine=sm(0.004,0.016,x);
-    return best({
-      chest:fz*(1-sm(0.55,1,pec))*sm(0.005,0.02,x),
-      abs:Math.max(fz*sm(0.078,0.058,x)*sm(0.965,0.995,y)*sm(1.235,1.205,y)*groove, 0.8*sm(0.07,0.095,x)*sm(0.17,0.145,x)*sm(0.955,0.99,y)*sm(1.2,1.15,y)*sm(-0.05,-0.01,p.z)),
-      traps:Math.max(trap*spine, sm(1.43,1.47,y)*Math.max(bz,sm(0.07,0.1,x))),
-      lats:bz*sm(1.03,1.11,y)*sm(1.4,1.32,y)*sm(latIn,latIn+0.035,x)*(1-trap),
-      lowerback:bz*sm(0.085,0.06,x)*sm(0.935,0.975,y)*sm(1.13,1.08,y)*spine,
-      glutes:bz*sm(0.955,0.925,y)*sm(0.79,0.82,y)});
-  });
-  add(lathe([[1.63,0.0],[1.61,0.064],[1.52,0.074],[1.46,0.105],[1.43,0.0]],48),root,[0,0,0.004],null,null,(p,n)=>best({traps:sm(0,0.5,-n.z)*sm(1.56,1.5,p.y)})); // neck
-  add(SPH(),root,[0,1.69,0.008],[0.08,0.1,0.09]);          // head
-  add(SPH(),root,[0,1.615,0.03],[0.056,0.048,0.058]);      // jaw
-  [-1,1].forEach(s=>{
-    const sh=new T.Group();sh.position.set(s*0.268,1.415,0);sh.rotation.z=s*0.23;root.add(sh);
-    add(SPH(),sh,[s*0.004,-0.005,0],[0.098,0.104,0.096],null,(p)=>["shoulders",sm(-0.105,-0.06,p.y)]);
-    add(lathe([[0.0,0.0],[-0.01,0.064],[-0.1,0.068],[-0.2,0.058],[-0.29,0.046],[-0.32,0.0]]),sh,[0,0,0],null,null,(p,n)=>{const rng=sm(-0.3,-0.24,p.y)*sm(-0.02,-0.07,p.y);return best({shoulders:sm(-0.07,-0.03,p.y),biceps:rng*sm(0.05,0.55,n.z),triceps:rng*sm(0.05,0.55,-n.z)})});
-    const el=new T.Group();el.position.set(0,-0.305,0);el.rotation.z=-s*0.08;sh.add(el);
-    add(SPH(),el,[0,0,0],[0.046,0.048,0.046]);
-    add(lathe([[0.0,0.0],[-0.01,0.05],[-0.07,0.058],[-0.17,0.044],[-0.26,0.032],[-0.275,0.0]]),el,[0,0,0],null,null,(p,n)=>["forearms",sm(-0.235,-0.18,p.y)*sm(-0.005,-0.03,p.y)*(0.75+0.25*Math.abs(n.z))]);
-    add(SPH(),el,[0,-0.31,0.004],[0.036,0.056,0.021]);
-  });
-  [-1,1].forEach(s=>{
-    const hip=new T.Group();hip.position.set(s*0.1,0.885,0);hip.rotation.z=s*0.03;root.add(hip);
-    add(lathe([[0.0,0.0],[-0.02,0.104],[-0.12,0.11],[-0.26,0.09],[-0.4,0.064],[-0.46,0.0]]),hip,[0,0,0],null,null,(p,n)=>{const rng=sm(-0.44,-0.38,p.y)*sm(-0.02,-0.07,p.y);return best({quads:rng*sm(-0.15,0.35,n.z),hamstrings:rng*sm(-0.15,0.35,-n.z)*sm(-0.03,-0.09,p.y),glutes:sm(0,0.4,-n.z)*sm(-0.1,-0.03,p.y)})});
-    const kn=new T.Group();kn.position.set(0,-0.45,0);kn.rotation.z=-s*0.03;hip.add(kn);
-    add(SPH(),kn,[0,0,0.004],[0.062,0.064,0.064]);
-    add(lathe([[0.0,0.0],[-0.01,0.064],[-0.1,0.075],[-0.22,0.056],[-0.36,0.037],[-0.41,0.0]]),kn,[0,0,0],null,null,(p,n)=>["calves",sm(0.1,0.6,-n.z)*sm(-0.32,-0.26,p.y)*sm(-0.005,-0.04,p.y)]);
-    add(SPH(),kn,[0,-0.425,0.045],[0.045,0.03,0.105]);
-  });
-  // label every vertex with the muscle it belongs to
-  meshes.forEach(m=>{m.updateMatrix();const g=m.geometry,pos=g.attributes.position,nor=g.attributes.normal;const reg=new Array(pos.count);
-    const v=new T.Vector3(),n=new T.Vector3(),nm=new T.Matrix3().getNormalMatrix(m.matrix);
-    const wt=new Float32Array(pos.count);
-    for(let i=0;i<pos.count;i++){v.fromBufferAttribute(pos,i).applyMatrix4(m.matrix);n.fromBufferAttribute(nor,i).applyMatrix3(nm).normalize();const r=m.userData.cls(v,n);
-      if(Array.isArray(r)){reg[i]=r[1]>0.04?r[0]:null;wt[i]=r[1]}else{reg[i]=r;wt[i]=r?1:0}}
-    m.userData.reg=reg;m.userData.wt=wt;g.setAttribute("color",new T.BufferAttribute(new Float32Array(pos.count*3),3))});
-  { const c=document.createElement("canvas");c.width=c.height=128;const g=c.getContext("2d");const gr=g.createRadialGradient(64,64,0,64,64,64);
-    gr.addColorStop(0,"rgba(0,0,0,0.55)");gr.addColorStop(1,"rgba(0,0,0,0)");g.fillStyle=gr;g.fillRect(0,0,128,128);
-    const sh=new T.Mesh(new T.PlaneGeometry(0.8,0.8),new T.MeshBasicMaterial({map:new T.CanvasTexture(c),transparent:true,depthWrite:false}));
-    sh.rotation.x=-Math.PI/2;sh.position.y=-0.005;sh.scale.set(1,0.55,1);scene.add(sh);}
+  const g=new T.BufferGeometry();g.setAttribute("position",new T.BufferAttribute(data.pos,3));g.setIndex(new T.BufferAttribute(data.idx,1));g.computeVertexNormals();
+  g.setAttribute("color",new T.BufferAttribute(new Float32Array(data.pos.length),3));
+  const mat=new T.MeshStandardMaterial({vertexColors:true,roughness:.55,metalness:.05});
+  const body=new T.Mesh(g,mat);const reg=Array.from(data.lab,x=>BODY_KEYS[x]);const wt=Float32Array.from(data.wt,x=>x/255);
+  body.userData.reg=reg;body.userData.wt=wt;root.add(body);const meshes=[body];
+  { const c=document.createElement("canvas");c.width=c.height=128;const gc=c.getContext("2d");const gr=gc.createRadialGradient(64,64,0,64,64,64);
+    gr.addColorStop(0,"rgba(0,0,0,0.55)");gr.addColorStop(1,"rgba(0,0,0,0)");gc.fillStyle=gr;gc.fillRect(0,0,128,128);
+    const sh=new T.Mesh(new T.PlaneGeometry(0.85,0.85),new T.MeshBasicMaterial({map:new T.CanvasTexture(c),transparent:true,depthWrite:false}));
+    sh.rotation.x=-Math.PI/2;sh.position.y=0.0;sh.scale.set(1,0.55,1);scene.add(sh);}
   const ray=new T.Raycaster(),ptr=new T.Vector2();
   const b={T,renderer,scene,camera,root,meshes,mat,ray,ptr,rotY:0.5,target:null,spinUntil:performance.now()+7000,drag:null,raf:0,sel:null,lv:{},sets:{}};
   const cv=renderer.domElement;
@@ -1271,7 +1234,7 @@ function build3D(){const T=THREE;
   return b}
 function theme3D(){const b=B3;if(!b)return;const T=b.T;const dark=isDark();
   const acc=new T.Color(getComputedStyle(document.documentElement).getPropertyValue("--accent").trim()||"#FF7A2E");
-  const skin=new T.Color(dark?0x232930:0xa6aeb9),zero=new T.Color(dark?0x39424d:0xc4ccd5),white=new T.Color(0xffffff);
+  const skin=new T.Color(dark?0x232930:0x8f99a6),zero=new T.Color(dark?0x39424d:0xaab3be),white=new T.Color(0xffffff);
   const pal={};Object.keys(MUSCLE_NAMES).forEach(k=>{const l=b.lv[k]||0;const c=zero.clone().lerp(acc,[0,.38,.7,1][l]);if(b.sel===k)c.lerp(white,dark?.45:.5);pal[k]=c});
   const tmp=new T.Color();
   b.meshes.forEach(m=>{const reg=m.userData.reg,wt=m.userData.wt,col=m.geometry.attributes.color;for(let i=0;i<reg.length;i++){const c=reg[i]?tmp.copy(skin).lerp(pal[reg[i]],wt[i]):skin;col.setXYZ(i,c.r,c.g,c.b)}col.needsUpdate=true});
@@ -1295,7 +1258,7 @@ function loop3D(t){const b=B3;b.raf=0;if(!b.renderer.domElement.isConnected)retu
 function size3D(){const b=B3;const slot=document.querySelector("#body3d .b3-slot");if(!b||!slot)return;const w=slot.clientWidth||320;const h=Math.round(Math.min(440,w*1.12));
   b.renderer.setSize(w,h,false);b.renderer.domElement.style.width=w+"px";b.renderer.domElement.style.height=h+"px";b.camera.aspect=w/h;b.camera.updateProjectionMatrix();kick3D()}
 function mount3D(){const host=document.getElementById("body3d");if(!host||!webglOK())return;
-  loadThree().then(()=>{const slot=host.querySelector(".b3-slot");if(!slot||!host.isConnected)return;if(!B3)B3=build3D();
+  Promise.all([loadThree(),loadBody()]).then(([,data])=>{const slot=host.querySelector(".b3-slot");if(!slot||!host.isConnected)return;if(!B3)B3=build3D(data);
     const t=weekSets();B3.sets=t;Object.keys(t).forEach(k=>{B3.lv[k]=lvlOf(t[k])});
     slot.appendChild(B3.renderer.domElement);host.classList.add("on");size3D();theme3D();
     B3.sel=S.selMuscle||null;theme3D();const tip=document.getElementById("b3-tip");if(tip&&B3.sel)tip.innerHTML=`<b>${MUSCLE_NAMES[B3.sel]}</b> · ${setsText(t[B3.sel])}`;
