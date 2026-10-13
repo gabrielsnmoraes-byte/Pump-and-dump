@@ -321,6 +321,9 @@ body:not(.authed) .tabs,body:not(.authed) .top .seg,body:not(.authed) .top .icon
 .upd{position:fixed;left:50%;transform:translateX(-50%);top:calc(10px + env(safe-area-inset-top,0px));z-index:65;display:flex;align-items:center;gap:12px;background:var(--fg);color:var(--bg);padding:8px 8px 8px 16px;border-radius:999px;font-weight:600;font-size:14px;box-shadow:0 8px 24px rgba(0,0,0,.3);white-space:nowrap}
 .upd button{border:0;background:var(--accent);color:var(--accent-fg);font-weight:700;padding:8px 14px;border-radius:999px;min-height:36px}
 
+/* Unfinished sets question */
+.fin-pend{display:flex;flex-direction:column;gap:6px;background:var(--surface);border:1px solid var(--accent);border-radius:var(--r);padding:12px 14px}
+
 /* To failure */
 .g-amrap{color:var(--accent)}
 .amrap-tag{display:inline-flex;align-items:center;height:var(--tap);padding:0 14px;border-radius:10px;background:var(--accent-soft);color:var(--accent);font-weight:700;font-size:14px;align-self:flex-start}
@@ -632,7 +635,7 @@ body:not(.authed) .tabs,body:not(.authed) .top .seg,body:not(.authed) .top .icon
 <script>
 (function(){
 "use strict";
-const APP_VERSION="v25";const LB=0.45359237, MI=1.609344, LOCAL_KEY="ironbook-v1";
+const APP_VERSION="v26";const LB=0.45359237, MI=1.609344, LOCAL_KEY="ironbook-v1";
 const $=(s,r=document)=>r.querySelector(s);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
@@ -996,17 +999,22 @@ function startWorkout(name,entries,routineId){
   S.active={id:uid(),name:name||defaultName(),startedAt:Date.now(),routineId:routineId||null,notes:"",entries:entries||[]};
   S.tab="log";S.confirm=null;saveProfile(true);render();window.scrollTo(0,0)}
 function defaultName(){const h=new Date().getHours();return h<11?"Morning workout":h<17?"Afternoon workout":"Evening workout"}
-async function finishWorkout(){
+function pendingSets(a){const out=[];a.entries.forEach(e=>{if(e.kind==="cardio")return;const n=(e.sets||[]).filter(x=>!x.done&&(x.r>0||x.t>0)).length;if(n)out.push({name:e.name,n})});return out}
+async function finishWorkout(mode){
   const a=S.active;if(!a)return;const prList=[];
+  const pend=pendingSets(a);
+  if(pend.length&&!mode){S.confirm="finish-pending";render();setTimeout(()=>{const el=document.querySelector(".fin-pend");if(el)el.scrollIntoView({behavior:"smooth",block:"center"})},40);return}
+  if(mode==="mark")a.entries.forEach(e=>(e.sets||[]).forEach(x=>{if(!x.done&&(x.r>0||x.t>0))x.done=true}));
+  S.confirm=null;
   const entries=a.entries.map(e=>{
     if(e.kind==="cardio"){const c=e.cardio||{};if(!c.dist&&!c.time)return null;cardioPRs(e,a.id).forEach(t=>prList.push(`${e.name}: ${t}`));
       return Object.assign({exId:e.exId,name:e.name,kind:"cardio",cardio:{mode:c.mode,dist:c.dist??null,time:c.time??null,incline:c.mode==="outdoor"?null:(c.incline??null)}},e.ss?{ss:true}:{})}
     const fl=s=>Object.assign({},s.wu?{wu:true}:{},s.pr?{pr:true}:{});
     (e.sets||[]).forEach(s=>{if(s.pr&&s.prt)prList.push(`${e.name}: ${s.prt}`)});
-    if(isTimed(e)){const ts=(e.sets||[]).filter(s=>s.t>0).map(s=>Object.assign({w:s.w??null,t:s.t},fl(s)));return ts.length?Object.assign({exId:e.exId,name:e.name,kind:"lift",timed:true,sets:ts},e.ss?{ss:true}:{}):null}
-    const sets=(e.sets||[]).filter(s=>s.r>0).map(s=>Object.assign({w:s.w??null,r:s.r},fl(s)));
+    if(isTimed(e)){const ts=(e.sets||[]).filter(s=>s.done&&s.t>0).map(s=>Object.assign({w:s.w??null,t:s.t},fl(s)));return ts.length?Object.assign({exId:e.exId,name:e.name,kind:"lift",timed:true,sets:ts},e.ss?{ss:true}:{}):null}
+    const sets=(e.sets||[]).filter(s=>s.done&&s.r>0).map(s=>Object.assign({w:s.w??null,r:s.r},fl(s)));
     return sets.length?Object.assign({exId:e.exId,name:e.name,kind:"lift",sets,planned:work(e).length},e.amrap?{amrap:true}:{},e.target?{target:e.target}:{},e.prog?{prog:e.prog}:{},e.ss?{ss:true}:{}):null}).filter(Boolean);
-  if(!entries.length){toast("Log at least one set or cardio entry before finishing.");return}
+  if(!entries.length){toast("Tick at least one set as done (or log cardio) before finishing.");return}
   if(a.editOf){const orig=S.workouts.find(x=>x.id===a.editOf)||{};const dur=a.durationSec||0;
     const w={id:a.editOf,name:(a.name||"").trim()||orig.name||defaultName(),date:new Date(a.startedAt).toISOString(),startedAt:a.startedAt,endedAt:a.startedAt+dur*1000,durationSec:dur,notes:a.notes||"",routineId:a.routineId||null,entries,prs:orig.prs||0,prList:orig.prList||[]};
     const ok=await saveWorkout(w);if(!ok)return;S.active=null;S.tab="history";S.confirm=null;saveProfile(true);render();toast("Changes saved");return}
@@ -1470,6 +1478,9 @@ function renderLog(){
     :a.entries.length?a.entries.map((e,i)=>(e.kind==="cardio"?cardioBlock(e,i):liftBlock(e,i))+(e.ss&&a.entries[i+1]?`<div class="ss-link">${ICON.link}Superset · go straight to the next exercise</div>`:"")).join(""):'<div class="empty"><strong>No exercises yet</strong>Add a lift or a cardio session to start logging.</div>'}
     <button class="btn block" data-act="open-picker" data-v="active">+ Add exercise</button>
     <div class="field"><label class="label" for="wnotes">Notes</label><textarea class="in" id="wnotes" data-f="wnotes" placeholder="How did it feel? Sleep, energy, anything to remember next time">${esc(a.notes)}</textarea></div>
+    ${S.confirm==="finish-pending"?(()=>{const p=pendingSets(a);const tot=p.reduce((x,y)=>x+y.n,0);
+      return `<div class="fin-pend"><b>${tot} set${tot>1?"s aren't":" isn't"} marked done</b><div class="muted" style="font-size:13px">${p.map(x=>`${esc(x.name)}: ${x.n}`).join(" · ")}</div>
+        <div class="row" style="flex-wrap:wrap"><button class="btn sm primary" data-act="finish-mark">Mark done and save</button><button class="btn sm" data-act="finish-skip">Save without them</button><button class="btn sm ghost" data-act="cancel-confirm">Keep going</button></div></div>`})():""}
     <button class="btn primary block" data-act="finish">${ed?"Save changes":"Finish and save workout"}</button>
     ${S.confirm==="discard"?`<div class="confirm"><span>${ed?"Drop your changes? The saved workout stays as it was.":"Discard this workout? Nothing will be saved."}</span><button class="btn sm" data-act="cancel-confirm">Keep editing</button><button class="btn sm danger solid" data-act="discard">${ed?"Drop changes":"Discard"}</button></div>`
       :`<button class="btn ghost danger" data-act="ask" data-v="discard">${ed?"Cancel editing":"Discard workout"}</button>`}`}
@@ -1884,6 +1895,8 @@ document.addEventListener("click",ev=>{const b=ev.target.closest("[data-act]");i
   case "rest-expand":$("#rest-full").hidden=false;break;
   case "rest-shrink":$("#rest-full").hidden=true;break;
   case "finish":finishWorkout();break;
+  case "finish-mark":finishWorkout("mark");break;
+  case "finish-skip":finishWorkout("skip");break;
   case "ask":S.confirm=v;render();break;
   case "cancel-confirm":S.confirm=null;render();break;
   case "discard":{const ed=S.active&&S.active.editOf;S.active=null;S.confirm=null;stopRest();stopHold(false);saveProfile(true);if(ed)S.tab="history";render();toast(ed?"Changes dropped":"Workout discarded");break}
