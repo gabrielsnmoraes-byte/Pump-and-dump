@@ -399,6 +399,18 @@ body:not(.authed) .tabs,body:not(.authed) .top .seg,body:not(.authed) .top .icon
 /* Drag to reorder */
 .rt-handle{width:36px;height:var(--tap);display:grid;place-items:center;color:var(--muted);touch-action:none;cursor:grab;flex:none;margin-left:-8px}
 .rt-handle svg{width:18px;height:18px}
+.pg{gap:10px}.pg-list{display:flex;flex-direction:column;gap:6px}
+.pg-row{display:flex;align-items:center;gap:8px;min-height:56px;padding:6px 10px 6px 4px;border-radius:12px;background:var(--surface-2);transition:transform .15s,box-shadow .15s}
+.pg-row.dragging{box-shadow:0 8px 24px rgba(0,0,0,.22);transform:scale(1.02);position:relative;z-index:2}
+.pg-row.off{padding-left:12px}.pg-row.off .pg-txt{opacity:.6}.pg-row.off .pg-num{display:none}
+.pg-handle{width:32px;height:44px;display:grid;place-items:center;color:var(--muted);touch-action:none;cursor:grab;flex:none}
+.pg-handle svg{width:18px;height:18px}
+.pg-num{width:24px;height:24px;border-radius:50%;background:var(--accent);color:var(--accent-fg);font-weight:800;font-size:13px;display:grid;place-items:center;flex:none}
+.pg-txt{min-width:0}.pg-n{font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.pg-s{font-size:12.5px;color:var(--muted)}.pg-s b{color:var(--accent);font-weight:700}
+.pg-sw{width:50px;height:30px;border-radius:999px;border:0;background:var(--line);position:relative;flex:none;padding:0;transition:background .2s}
+.pg-sw i{position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:transform .2s}
+.pg-sw.on{background:var(--accent)}.pg-sw.on i{transform:translateX(20px)}
+.r-off h3{color:var(--muted)}
 .rt-edit-item.dragging{background:var(--surface-2);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.25);margin:0 -10px;padding-inline:10px}
 
 /* Exercise notes + edit mode */
@@ -635,7 +647,7 @@ body:not(.authed) .tabs,body:not(.authed) .top .seg,body:not(.authed) .top .icon
 <script>
 (function(){
 "use strict";
-const APP_VERSION="v26";const LB=0.45359237, MI=1.609344, LOCAL_KEY="ironbook-v1";
+const APP_VERSION="v27";const LB=0.45359237, MI=1.609344, LOCAL_KEY="ironbook-v1";
 const $=(s,r=document)=>r.querySelector(s);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
@@ -1484,21 +1496,26 @@ function renderLog(){
     <button class="btn primary block" data-act="finish">${ed?"Save changes":"Finish and save workout"}</button>
     ${S.confirm==="discard"?`<div class="confirm"><span>${ed?"Drop your changes? The saved workout stays as it was.":"Discard this workout? Nothing will be saved."}</span><button class="btn sm" data-act="cancel-confirm">Keep editing</button><button class="btn sm danger solid" data-act="discard">${ed?"Drop changes":"Discard"}</button></div>`
       :`<button class="btn ghost danger" data-act="ask" data-v="discard">${ed?"Cancel editing":"Discard workout"}</button>`}`}
-function nextRoutine(){if(!S.routines.length)return null;const ids=S.routines.map(r=>r.id);const lw=sortedWorkouts().find(w=>w.routineId&&ids.includes(w.routineId));
-  if(!lw)return S.routines[0];return S.routines[(ids.indexOf(lw.routineId)+1)%S.routines.length]}
+function programList(){return S.routines.filter(r=>!r.off)}
+function nextRoutine(){const pl=programList();if(!pl.length)return null;const ids=pl.map(r=>r.id);const lw=sortedWorkouts().find(w=>w.routineId&&ids.includes(w.routineId));
+  if(!lw)return pl[0];return pl[(ids.indexOf(lw.routineId)+1)%pl.length]}
 function weekStreak(){const wk=new Set(S.workouts.map(w=>weekStart(w.date).getTime()));let c=weekStart(new Date()),n=0;if(!wk.has(c.getTime()))c.setDate(c.getDate()-7);while(wk.has(c.getTime())){n++;c.setDate(c.getDate()-7)}return n}
-function renderHome(){const nx=nextRoutine();const last=sortedWorkouts()[0];const others=S.routines.filter(r=>!nx||r.id!==nx.id);
+function renderHome(){const nx=nextRoutine();const last=sortedWorkouts()[0];const others=programList().filter(r=>!nx||r.id!==nx.id);const offN=S.routines.filter(r=>r.off).length;
   const lastPR=sortedWorkouts().find(w=>(w.prList||[]).length);const ws=weekStart(new Date());const wkN=S.workouts.filter(w=>new Date(w.date)>=ws).length;const streak=weekStreak();
   const hero=nx?`<div class="start hero"><div class="tape"></div><div class="start-in">
       <div class="label">Up next</div><h2 class="hero-t">${esc(nx.name)}</h2>
       <div class="muted hero-x">${esc(nx.items.map(i=>i.name).join(" · "))}</div>
       <button class="btn primary block big" data-act="start-routine" data-id="${nx.id}">Start ${esc(nx.name)}</button>
       ${last?`<div class="muted" style="font-size:13px">Last session: ${esc(last.name)}, ${relDay(last.date)}</div>`:""}</div></div>`
+    :S.routines.length?`<div class="start hero"><div class="tape"></div><div class="start-in"><h2 class="hero-t">Your program is empty</h2>
+      <div class="muted">Switch on the routines you're running now and they'll come up here in order.</div>
+      <button class="btn primary block big" data-act="tab" data-v="routines">Set up program</button>
+      <button class="btn block" data-act="start-empty">Start empty workout</button></div></div>`
     :`<div class="start hero"><div class="tape"></div><div class="start-in"><h2 class="hero-t">Start a workout</h2>
       <div class="muted">Build a routine in the Routines tab and it will show up here, ready to start in one tap.</div>
       <button class="btn primary block big" data-act="start-empty">Start empty workout</button></div></div>`;
   return `${hero}
-    ${nx?`<div class="row" style="flex-wrap:wrap">${others.map(r=>`<button class="chip" data-act="start-routine" data-id="${r.id}">${esc(r.name)}</button>`).join("")}<button class="chip" data-act="start-empty">Empty workout</button></div>`:""}
+    ${nx?`<div class="row" style="flex-wrap:wrap">${others.map(r=>`<button class="chip" data-act="start-routine" data-id="${r.id}">${esc(r.name)}</button>`).join("")}${offN?`<button class="chip" data-act="tab" data-v="routines">Other routines</button>`:""}<button class="chip" data-act="start-empty">Empty workout</button></div>`:""}
     <div class="stats"><div class="stat"><div class="v">${streak}</div><div class="s">week streak</div></div>
       <div class="stat"><div class="v">${wkN}</div><div class="s">this week</div></div>
       <div class="stat"><div class="v">${S.workouts.length}</div><div class="s">all time</div></div></div>
@@ -1666,13 +1683,25 @@ function renderRoutines(){
   let out=`<div class="sec-h"><h2>Routines</h2><button class="btn sm primary" data-act="new-routine">+ New routine</button></div>`;
   if(!S.routines.length){out+=`<div class="empty"><strong>Make your own workouts</strong>Group the exercises you do together, with set and rep targets, then start them in one tap.</div>
     <div class="label">Or start from a template</div><div class="stack" style="gap:8px">${TEMPLATES.map((t,i)=>`<div class="card row"><div class="grow"><div style="font-weight:600">${t.name}</div><div class="rs muted" style="font-size:13px">${t.items.map(x=>exById(x[0]).name).join(", ")}</div></div><button class="btn sm" data-act="add-template" data-v="${i}">Add</button></div>`).join("")}</div>`;return out}
-  S.routines.forEach(r=>{out+=`<article class="card stack" style="gap:10px"><div class="row"><h3 class="grow">${esc(r.name)}</h3><span class="tag">${r.items.length} exercises</span></div>
+  out+=programPanel();const pl=programList(),offL=S.routines.filter(r=>r.off);
+  [...pl,...offL].forEach((r,ri)=>{if(ri===pl.length&&offL.length)out+=`<div class="label" style="margin-top:6px">Not in program</div>`;
+    out+=`<article class="card stack${r.off?" r-off":""}" style="gap:10px"><div class="row"><h3 class="grow">${esc(r.name)}</h3><span class="tag">${r.items.length} exercises</span></div>
     <div class="rt-items">${r.items.map(it=>{const l=lastEntry(it.exId,r.id);const mn=it.repMin??it.reps,mx=it.repMax??it.reps;
       return `<div class="rt-it"><div class="line"><span class="n">${esc(it.name)}${it.ss?` <span class="tag acc">superset</span>`:""}</span><span class="v">${it.kind==="cardio"?"cardio":isTimed(it)?`${it.sets} × ${clock(it.reps||30)}`:it.amrap?`${it.sets} × to failure`:`${it.sets} × ${mn===mx?mn:mn+"–"+mx}`}${it.rest?" · "+clock(it.rest):""}</span></div>
       ${l?`<div class="rt-last">Last ${fmtShort(l.w.date)}: ${esc(entrySummary(l.e))}</div>`:""}</div>`}).join("")}</div>
     ${S.confirm==="delr-"+r.id?`<div class="confirm"><span>Delete this routine? Past workouts stay saved.</span><button class="btn sm" data-act="cancel-confirm">Cancel</button><button class="btn sm danger solid" data-act="del-r" data-id="${r.id}">Delete</button></div>`
     :`<div class="row"><button class="btn sm" data-act="start-routine" data-id="${r.id}">Start</button><button class="btn sm" data-act="edit-routine" data-id="${r.id}">Edit</button><button class="btn sm" data-act="dup-r" data-id="${r.id}">Duplicate</button><span class="grow"></span><button class="btn sm ghost danger" data-act="ask" data-v="delr-${r.id}">Delete</button></div>`}</article>`});
   return out}
+
+function programPanel(){const pl=programList(),offL=S.routines.filter(r=>r.off);const nx=nextRoutine();
+  const row=(r,k)=>`<div class="pg-row${r.off?" off":""}${S.pgDrag===k&&!r.off?" dragging":""}" data-k="${r.off?"":k}">
+    ${r.off?`<span class="pg-num"></span>`:`<span class="pg-handle" data-k="${k}" role="button" aria-label="Drag to reorder ${esc(r.name)}">${ICON.grip}</span><span class="pg-num">${k+1}</span>`}
+    <div class="grow pg-txt"><div class="pg-n">${esc(r.name)}</div><div class="pg-s">${r.items.length} exercises${nx&&nx.id===r.id?` · <b>up next</b>`:""}</div></div>
+    <button class="pg-sw${r.off?"":" on"}" data-act="prog-toggle" data-id="${r.id}" role="switch" aria-checked="${!r.off}" aria-label="${esc(r.name)} in program"><i></i></button></div>`;
+  return `<section class="card pg"><div class="row"><h3 class="grow">Program</h3><span class="muted" style="font-size:13px">${pl.length?"Runs in this order, then repeats":""}</span></div>
+    ${pl.length?`<div class="pg-list">${pl.map(row).join("")}</div>`:`<div class="muted" style="font-size:14px">Nothing in your program. Switch a routine on and it will come up next on Home.</div>`}
+    ${offL.length?`<div class="label" style="margin-top:4px">Switched off</div><div class="pg-list">${offL.map(r=>row(r,-1)).join("")}</div>`:""}
+    <div class="muted" style="font-size:12.5px">Drag to change the order. Switched-off routines stay saved and you can still start them below.</div></section>`}
 
 /* ---------- Sheets ---------- */
 function renderSheet(){const el=$("#sheet");const sh=S.sheet;if(!sh){el.innerHTML="";el.dataset.type="";return}
@@ -1843,6 +1872,10 @@ document.addEventListener("click",ev=>{const b=ev.target.closest("[data-act]");i
   case "ex-swap":{const e=a.entries[ei];S.menu=null;S.sheet={type:"picker",target:"swap-active",ei,q:"",group:"All",creating:false};render();break}
   case "rt-swap":{const i=+b.dataset.i;const sb=$("#sheet-b");S.rtReturn=sb?sb.scrollTop:0;S.sheet={type:"picker",target:"swap-routine",idx:i,q:"",group:"All",creating:false};renderSheet();break}
   case "rt-info":{const i=+b.dataset.i;S.rtInfo=S.rtInfo===i?-1:i;renderSheet();break}
+  case "prog-toggle":{const r=S.routines.find(x=>x.id===b.dataset.id);if(!r)break;
+    if(r.off){delete r.off;const rest=S.routines.filter(x=>x!==r);const pl=rest.filter(x=>!x.off);S.routines=[...pl,r,...rest.filter(x=>x.off)];toast(r.name+" added to your program")}
+    else{r.off=true;const rest=S.routines.filter(x=>x!==r);S.routines=[...rest,r];toast(r.name+" switched off. It's still saved.")}
+    saveProfile();render();break}
   case "dup-r":{const r=S.routines.find(x=>x.id===b.dataset.id);if(!r)break;const c=JSON.parse(JSON.stringify(r));c.id=uid();c.name=r.name+" copy";c.isNew=true;
     S.routineDraft=c;S.rtErr=null;S.rtOpen=-1;S.sheet={type:"routine"};renderSheet();toast("Copied. Rename it and adjust, then save.");break}
   case "save-as-r":{const w=S.workouts.find(x=>x.id===b.dataset.id);if(!w)break;S.routineDraft=routineFromWorkout(w);S.rtErr=null;S.rtOpen=-1;S.sheet={type:"routine"};render();toast("Check the details, then tap Save routine.");break}
@@ -1924,7 +1957,7 @@ document.addEventListener("click",ev=>{const b=ev.target.closest("[data-act]");i
     const err=!d.name?"Give the routine a name first (at the top of this panel).":!d.items.length?"Add at least one exercise with + Add exercise.":"";
     if(err){S.rtErr=err;renderSheet();const n=$("#rt-name");if(!d.name&&n)n.focus();break}
     S.rtErr=null;
-    try{const clean={id:d.id,name:d.name,items:JSON.parse(JSON.stringify(d.items))};clean.items.forEach(it=>{if(it.kind!=="cardio"&&!isTimed(it)&&it.repMin!=null)S.exProg=Object.assign({},S.exProg,{[it.exId]:{min:it.repMin,max:it.repMax,inc:it.inc||defaultIncKg()}})});const i=S.routines.findIndex(r=>r.id===d.id);if(i>=0)S.routines[i]=clean;else S.routines.push(clean);
+    try{const clean={id:d.id,name:d.name,items:JSON.parse(JSON.stringify(d.items))};clean.items.forEach(it=>{if(it.kind!=="cardio"&&!isTimed(it)&&it.repMin!=null)S.exProg=Object.assign({},S.exProg,{[it.exId]:{min:it.repMin,max:it.repMax,inc:it.inc||defaultIncKg()}})});const i=S.routines.findIndex(r=>r.id===d.id);if(i>=0){if(S.routines[i].off)clean.off=true;S.routines[i]=clean}else S.routines.push(clean);
       S.sheet=null;S.routineDraft=null;saveProfile(true);S.tab="routines";render();toast("Routine saved")}
     catch(e){console.error(e);S.rtErr="Couldn't save the routine ("+(e&&e.message||"unknown error")+"). Reload the page and try again.";renderSheet()}break}
   case "del-r":S.routines=S.routines.filter(r=>r.id!==b.dataset.id);S.confirm=null;saveProfile();render();break;
@@ -2032,6 +2065,18 @@ document.addEventListener("pointermove",ev=>{if(!wdrag)return;ev.preventDefault(
 const endWDrag=()=>{if(!wdrag)return;const {i,y}=wdrag;wdrag=null;S.reorder=null;saveProfile();render();
   const card=document.querySelectorAll("#view section.ex")[i];if(card){const b=card.getBoundingClientRect();window.scrollBy(0,b.top-Math.max(90,y-40))}};
 document.addEventListener("pointerup",endWDrag);document.addEventListener("pointercancel",endWDrag);
+
+/* ---------- Drag to reorder the program ---------- */
+let pgdrag=null;
+document.addEventListener("pointerdown",ev=>{const h=ev.target.closest(".pg-handle");if(!h)return;ev.preventDefault();pgdrag={k:+h.dataset.k};S.pgDrag=pgdrag.k;render();
+  try{navigator.vibrate&&navigator.vibrate(8)}catch(_){}});
+document.addEventListener("pointermove",ev=>{if(!pgdrag)return;ev.preventDefault();
+  if(ev.clientY<70)window.scrollBy(0,-12);else if(ev.clientY>window.innerHeight-110)window.scrollBy(0,12);
+  const rows=[...document.querySelectorAll(".pg-row[data-k]:not(.off)")];
+  for(let k=0;k<rows.length;k++){if(k===pgdrag.k)continue;const bx=rows[k].getBoundingClientRect();const mid=bx.top+bx.height/2;
+    if((k<pgdrag.k&&ev.clientY<mid)||(k>pgdrag.k&&ev.clientY>mid)){const pl=programList();const [m]=pl.splice(pgdrag.k,1);pl.splice(k,0,m);S.routines=[...pl,...S.routines.filter(r=>r.off)];pgdrag.k=k;S.pgDrag=k;render();break}}},{passive:false});
+const endPgDrag=()=>{if(!pgdrag)return;pgdrag=null;S.pgDrag=null;saveProfile();render()};
+document.addEventListener("pointerup",endPgDrag);document.addEventListener("pointercancel",endPgDrag);
 
 /* ---------- Drag to reorder routine exercises ---------- */
 let drag=null;
