@@ -321,6 +321,10 @@ body:not(.authed) .tabs,body:not(.authed) .top .seg,body:not(.authed) .top .icon
 .upd{position:fixed;left:50%;transform:translateX(-50%);top:calc(10px + env(safe-area-inset-top,0px));z-index:65;display:flex;align-items:center;gap:12px;background:var(--fg);color:var(--bg);padding:8px 8px 8px 16px;border-radius:999px;font-weight:600;font-size:14px;box-shadow:0 8px 24px rgba(0,0,0,.3);white-space:nowrap}
 .upd button{border:0;background:var(--accent);color:var(--accent-fg);font-weight:700;padding:8px 14px;border-radius:999px;min-height:36px}
 
+/* To failure */
+.g-amrap{color:var(--accent)}
+.amrap-tag{display:inline-flex;align-items:center;height:var(--tap);padding:0 14px;border-radius:10px;background:var(--accent-soft);color:var(--accent);font-weight:700;font-size:14px;align-self:flex-start}
+
 /* My exercises */
 .info-btn.ed{font-style:normal}.info-btn.ed svg{width:15px;height:15px}
 .my-ex{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:12px;overflow:hidden}
@@ -628,7 +632,7 @@ body:not(.authed) .tabs,body:not(.authed) .top .seg,body:not(.authed) .top .icon
 <script>
 (function(){
 "use strict";
-const APP_VERSION="v24";const LB=0.45359237, MI=1.609344, LOCAL_KEY="ironbook-v1";
+const APP_VERSION="v25";const LB=0.45359237, MI=1.609344, LOCAL_KEY="ironbook-v1";
 const $=(s,r=document)=>r.querySelector(s);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
@@ -967,6 +971,7 @@ function entrySummary(e){
     return same?`${ts.length} × ${clock(ts[0].t)}${ts[0].w?" @ "+fmtW(ts[0].w):""}`:`${ts.length} sets · longest ${clock(long.t)}${hw?" · up to "+fmtW(hw):""}`}
   const sets=(e.sets||[]).filter(s=>s.r&&!s.wu);if(!sets.length)return "";
   const b=bestSet(e);const same=sets.every(s=>s.r===sets[0].r&&s.w===sets[0].w);
+  if(e.amrap)return `${sets.map(x=>x.r).join(", ")} reps${sets[0].w&&sets.every(x=>x.w===sets[0].w)?" @ "+fmtW(sets[0].w):""} · to failure`;
   if(same)return `${sets.length} × ${sets[0].r}${sets[0].w?" @ "+fmtW(sets[0].w):""}`;
   return `${sets.length} sets · best ${b.w?fmtW(b.w)+" × "+b.r:b.r+" reps"}`}
 function workoutVolume(w){let v=0;(w.entries||[]).forEach(e=>(e.sets||[]).forEach(s=>{if(s.w&&s.r&&!s.wu)v+=s.w*s.r}));return v}
@@ -979,11 +984,12 @@ function newEntry(ex,prefill){prefill=prefill||{};const rid=prefill.rid!==undefi
     e.cardio={mode:lc.mode||(ex.indoor?"indoor":"outdoor"),dist:null,time:null,incline:lc.incline??null};
     if(prefill.cardio)Object.assign(e.cardio,prefill.cardio);return e}
   const last=lastEntry(ex.id,rid);const lw=last?work(last.e):[];const n=prefill.sets||(lw.length?lw.length:3);
-  const prog=ex.timed?null:(prefill.prog||(S.exProg||{})[ex.id]||null);if(prog)e.prog=Object.assign({},prog);
+  if(prefill.amrap&&!ex.timed)e.amrap=true;
+  const prog=ex.timed||e.amrap?null:(prefill.prog||(S.exProg||{})[ex.id]||null);if(prog)e.prog=Object.assign({},prog);
   const plan=planNext(ex.id,prog,rid);if(plan){e.goal=plan;e.target=plan.r}
   e.sets=[];for(let i=0;i<n;i++){const ls=lw.length?lw[Math.min(i,lw.length-1)]:null;
     if(ex.timed)e.sets.push({w:ls?ls.w??null:null,t:prefill.reps||(ls?ls.t??null:null),done:false});
-    else e.sets.push({w:plan&&plan.w!=null?plan.w:(ls?ls.w??null:null),r:null,tr:plan?plan.r:(prefill.reps||(ls?ls.r:null)),done:false})}
+    else e.sets.push({w:plan&&plan.w!=null?plan.w:(ls?ls.w??null:null),r:null,tr:e.amrap?null:(plan?plan.r:(prefill.reps||(ls?ls.r:null))),done:false})}
   if(prefill.warmup&&!ex.timed&&e.sets[0]&&e.sets[0].w)e.sets=genWarmups(e.sets[0].w).concat(e.sets);
   return e}
 function startWorkout(name,entries,routineId){
@@ -999,7 +1005,7 @@ async function finishWorkout(){
     (e.sets||[]).forEach(s=>{if(s.pr&&s.prt)prList.push(`${e.name}: ${s.prt}`)});
     if(isTimed(e)){const ts=(e.sets||[]).filter(s=>s.t>0).map(s=>Object.assign({w:s.w??null,t:s.t},fl(s)));return ts.length?Object.assign({exId:e.exId,name:e.name,kind:"lift",timed:true,sets:ts},e.ss?{ss:true}:{}):null}
     const sets=(e.sets||[]).filter(s=>s.r>0).map(s=>Object.assign({w:s.w??null,r:s.r},fl(s)));
-    return sets.length?Object.assign({exId:e.exId,name:e.name,kind:"lift",sets,planned:work(e).length},e.target?{target:e.target}:{},e.prog?{prog:e.prog}:{},e.ss?{ss:true}:{}):null}).filter(Boolean);
+    return sets.length?Object.assign({exId:e.exId,name:e.name,kind:"lift",sets,planned:work(e).length},e.amrap?{amrap:true}:{},e.target?{target:e.target}:{},e.prog?{prog:e.prog}:{},e.ss?{ss:true}:{}):null}).filter(Boolean);
   if(!entries.length){toast("Log at least one set or cardio entry before finishing.");return}
   if(a.editOf){const orig=S.workouts.find(x=>x.id===a.editOf)||{};const dur=a.durationSec||0;
     const w={id:a.editOf,name:(a.name||"").trim()||orig.name||defaultName(),date:new Date(a.startedAt).toISOString(),startedAt:a.startedAt,endedAt:a.startedAt+dur*1000,durationSec:dur,notes:a.notes||"",routineId:a.routineId||null,entries,prs:orig.prs||0,prList:orig.prList||[]};
@@ -1107,7 +1113,8 @@ function noteBlock(e,i){const note=(S.exNotes||{})[e.exId]||"";
   if(S.noteEdit===e.uid)return `<div class="note-ed"><textarea class="in" id="note-${e.uid}" data-f="exnote" data-ei="${i}" rows="2" placeholder="e.g. Seat height 4, use the left rack, elbows tucked">${esc(note)}</textarea>
     <div class="row"><span class="muted grow" style="font-size:12px">Shows every time you do ${esc(e.name)}.</span><button class="btn sm" data-act="note-done" data-ei="${i}">Done</button></div></div>`;
   return note?`<button class="xnote" data-act="note-edit" data-ei="${i}" aria-label="Edit note for ${esc(e.name)}">${ICON.note}<span>${esc(note)}</span></button>`:""}
-function shortGoal(e){const g=e.goal;if(!g||!e.prog)return "";const n=work(e).length;const wt=g.w?` @ ${wOut(g.w)}`:"";
+function shortGoal(e){if(e.amrap){const l=lastEntry(e.exId);const rs=l?work(l.e).map(x=>x.r).filter(Boolean):[];return rs.length?`To failure · beat ${rs.join(", ")}`:"To failure · as many reps as you can"}
+  const g=e.goal;if(!g||!e.prog)return "";const n=work(e).length;const wt=g.w?` @ ${wOut(g.w)}`:"";
   return {first:`Aim ${e.prog.min}–${e.prog.max} reps`,rep:`↑ Goal ${n} × ${g.r}${wt}`,weight:`⬆ Weight up ${n} × ${g.r}${wt}`,repeat:`↻ Repeat ${n} × ${g.r}${wt}`}[g.kind]}
 
 /* ---------- Muscles: heat map + mobility ---------- */
@@ -1503,17 +1510,18 @@ function liftBlock(e,i){const def=exById(e.exId);const last=lastEntry(e.exId);co
       <div class="prev">${s.wu?"warm-up":ps?esc(setStr(ps)):"–"}</div>
       <input class="cell" inputmode="decimal" data-f="w" data-ei="${i}" data-si="${si}" id="w-${e.uid}-${si}" value="${wOut(s.w)}" placeholder="${ps&&ps.w?wOut(ps.w):tm?"+0":"0"}" aria-label="${lbl} weight">
       ${tm?`<input class="cell" inputmode="numeric" data-f="t" data-ei="${i}" data-si="${si}" id="t-${e.uid}-${si}" value="${s.t??""}" placeholder="${ps&&ps.t?ps.t:"30"}" aria-label="${lbl} seconds">`
-        :`<input class="cell" inputmode="numeric" data-f="r" data-ei="${i}" data-si="${si}" id="r-${e.uid}-${si}" value="${s.r??""}" placeholder="${s.tr??(ps?ps.r:"0")}" aria-label="${lbl} reps">`}
+        :`<input class="cell" inputmode="numeric" data-f="r" data-ei="${i}" data-si="${si}" id="r-${e.uid}-${si}" value="${s.r??""}" placeholder="${e.amrap&&!s.wu?"max":(s.tr??(ps?ps.r:"0"))}" aria-label="${lbl} reps">`}
       <button class="chk${pop?" pop":""}" data-act="done" data-ei="${i}" data-si="${si}" aria-pressed="${!!s.done}" aria-label="Mark ${lbl} done">${ICON.check}</button></div></div>`}).join("");
   const incs=INC_OPTS();const pg=e.prog;
   const panel=S.restPick===e.uid?`<div class="rest-pick"><div class="row"><span class="label grow">Rest after each set</span><button class="btn sm ghost" data-act="ex-rest" data-ei="${i}">Done</button></div><div class="chips">${REST_OPTS.map(v=>`<button class="chip" data-act="ex-rest-set" data-ei="${i}" data-v="${v}" aria-pressed="${restFor(e)===v}">${clock(v)}</button>`).join("")}</div>
-    ${tm?"":`<div class="label">Rep range</div><div class="row" style="flex-wrap:wrap;gap:8px">
+    ${tm?"":`<div class="row" style="flex-wrap:wrap"><button class="chip" data-act="amrap-tog" data-ei="${i}" aria-pressed="${!!e.amrap}">Reps to failure</button></div>`}
+    ${tm||e.amrap?"":`<div class="label">Rep range</div><div class="row" style="flex-wrap:wrap;gap:8px">
       <span class="stepper"><button data-act="prog-step" data-ei="${i}" data-k="min" data-v="-1" aria-label="Lower minimum">−</button><span>${pg?pg.min:"–"} min</span><button data-act="prog-step" data-ei="${i}" data-k="min" data-v="1" aria-label="Raise minimum">+</button></span>
       <span class="stepper"><button data-act="prog-step" data-ei="${i}" data-k="max" data-v="-1" aria-label="Lower maximum">−</button><span>${pg?pg.max:"–"} max</span><button data-act="prog-step" data-ei="${i}" data-k="max" data-v="1" aria-label="Raise maximum">+</button></span>
       ${pg?`<button class="btn sm ghost" data-act="prog-off" data-ei="${i}">Turn off</button>`:""}</div>
       <div class="label">Weight jump after you top the range (${S.unit})</div><span class="stepper" style="align-self:flex-start"><button data-act="prog-incstep" data-ei="${i}" data-v="-1" aria-label="Smaller weight jump">−</button><input class="step-in" id="proginc-${e.uid}" data-f="proginc" data-ei="${i}" inputmode="decimal" value="${wOut(pg&&pg.inc||defaultIncKg())}" aria-label="Weight jump in ${S.unit}"><button data-act="prog-incstep" data-ei="${i}" data-v="1" aria-label="Bigger weight jump">+</button></span>`}
     <div class="muted" style="font-size:12px">Saved for ${esc(e.name)} from now on.</div></div>`:"";
-  const gk=e.goal&&e.goal.kind;const sg=shortGoal(e);
+  const gk=e.amrap?"amrap":e.goal&&e.goal.kind;const sg=shortGoal(e);
   const info=(last||sg)?`<div class="info">${last?`<span>Last${last.same?" here":""}: ${esc(entrySummary(last.e))}</span>`:""}${sg?`<span class="g g-${gk}">${esc(sg)}</span>`:""}</div>`:"";
   return `<section class="ex${e.ss?" ss-top":""}${i>0&&a.entries[i-1].ss?" ss-bot":""}"><div class="ex-head"><span class="ex-handle" data-ei="${i}" role="button" aria-label="Drag to reorder ${esc(e.name)}">${ICON.grip}</span><div class="grow"><h3>${esc(e.name)}</h3><div class="grp">${esc(def?def.group:"")}${tm?" · timed hold":""}${e.ss?" · superset":""}</div></div>
     <button class="rest-chip" data-act="ex-rest" data-ei="${i}" aria-expanded="${S.restPick===e.uid}" aria-label="Rest and rep range for ${esc(e.name)}">${ICON.timer}${clock(restFor(e))}</button>
@@ -1649,7 +1657,7 @@ function renderRoutines(){
     <div class="label">Or start from a template</div><div class="stack" style="gap:8px">${TEMPLATES.map((t,i)=>`<div class="card row"><div class="grow"><div style="font-weight:600">${t.name}</div><div class="rs muted" style="font-size:13px">${t.items.map(x=>exById(x[0]).name).join(", ")}</div></div><button class="btn sm" data-act="add-template" data-v="${i}">Add</button></div>`).join("")}</div>`;return out}
   S.routines.forEach(r=>{out+=`<article class="card stack" style="gap:10px"><div class="row"><h3 class="grow">${esc(r.name)}</h3><span class="tag">${r.items.length} exercises</span></div>
     <div class="rt-items">${r.items.map(it=>{const l=lastEntry(it.exId,r.id);const mn=it.repMin??it.reps,mx=it.repMax??it.reps;
-      return `<div class="rt-it"><div class="line"><span class="n">${esc(it.name)}${it.ss?` <span class="tag acc">superset</span>`:""}</span><span class="v">${it.kind==="cardio"?"cardio":isTimed(it)?`${it.sets} × ${clock(it.reps||30)}`:`${it.sets} × ${mn===mx?mn:mn+"–"+mx}`}${it.rest?" · "+clock(it.rest):""}</span></div>
+      return `<div class="rt-it"><div class="line"><span class="n">${esc(it.name)}${it.ss?` <span class="tag acc">superset</span>`:""}</span><span class="v">${it.kind==="cardio"?"cardio":isTimed(it)?`${it.sets} × ${clock(it.reps||30)}`:it.amrap?`${it.sets} × to failure`:`${it.sets} × ${mn===mx?mn:mn+"–"+mx}`}${it.rest?" · "+clock(it.rest):""}</span></div>
       ${l?`<div class="rt-last">Last ${fmtShort(l.w.date)}: ${esc(entrySummary(l.e))}</div>`:""}</div>`}).join("")}</div>
     ${S.confirm==="delr-"+r.id?`<div class="confirm"><span>Delete this routine? Past workouts stay saved.</span><button class="btn sm" data-act="cancel-confirm">Cancel</button><button class="btn sm danger solid" data-act="del-r" data-id="${r.id}">Delete</button></div>`
     :`<div class="row"><button class="btn sm" data-act="start-routine" data-id="${r.id}">Start</button><button class="btn sm" data-act="edit-routine" data-id="${r.id}">Edit</button><button class="btn sm" data-act="dup-r" data-id="${r.id}">Duplicate</button><span class="grow"></span><button class="btn sm ghost danger" data-act="ask" data-v="delr-${r.id}">Delete</button></div>`}</article>`});
@@ -1706,18 +1714,18 @@ function routineBody(d){const last=d.items.length-1;
   return `<div class="field"><label class="label" for="rt-name">Routine name</label><input class="in" id="rt-name" data-f="rtname" value="${esc(d.name)}" placeholder="e.g. Upper body A" style="text-align:left;padding:11px"></div>
    <div>${d.items.length?d.items.map((it,i)=>{const tm=isTimed(it);const lift=it.kind!=="cardio";
      const open=S.rtOpen===i;const mn=it.repMin??it.reps,mx=it.repMax??it.reps;
-     const sum=it.kind==="cardio"?"Cardio":tm?`${it.sets} × ${clock(it.reps)} hold · ${clock(it.rest||restFor(it))} rest`:`${it.sets} × ${mn===mx?mn:mn+"–"+mx} · ${clock(it.rest||restFor(it))} rest · +${wOut(it.inc||defaultIncKg())} ${S.unit}${it.warmup?" · warm-ups":""}`;
+     const sum=it.kind==="cardio"?"Cardio":it.amrap&&!tm?`${it.sets} × to failure · ${clock(it.rest||restFor(it))} rest${it.warmup?" · warm-ups":""}`:tm?`${it.sets} × ${clock(it.reps)} hold · ${clock(it.rest||restFor(it))} rest`:`${it.sets} × ${mn===mx?mn:mn+"–"+mx} · ${clock(it.rest||restFor(it))} rest · +${wOut(it.inc||defaultIncKg())} ${S.unit}${it.warmup?" · warm-ups":""}`;
      return `<div class="rt-edit-item${open?" open":""}${S.rtDrag===i?" dragging":""}"><div class="rt-top"><span class="rt-handle" data-i="${i}" role="button" aria-label="Drag to reorder ${esc(it.name)}">${ICON.grip}</span><button class="rt-sum" data-act="rt-open" data-i="${i}" aria-expanded="${open}"><span class="rt-n">${esc(it.name)}</span><span class="rt-s">${esc(sum)}${it.ss?" · superset":""}</span></button>
        <button class="icon-btn danger-i" data-act="rt-rm" data-i="${i}" aria-label="Remove ${esc(it.name)}">${ICON.x}</button></div>
      ${open?`<div class="rt-body">`:`<div class="rt-body" hidden>`}
      ${lift?`<div class="rt-grid">
        <div class="rt-f"><span class="label">Sets</span><span class="stepper"><button data-act="rt-step" data-i="${i}" data-k="sets" data-v="-1" aria-label="Fewer sets">−</button><span>${it.sets}</span><button data-act="rt-step" data-i="${i}" data-k="sets" data-v="1" aria-label="More sets">+</button></span></div>
        ${tm?`<div class="rt-f"><span class="label">Hold</span><span class="stepper"><button data-act="rt-step" data-i="${i}" data-k="reps" data-v="-1" aria-label="Shorter hold">−</button><span>${clock(it.reps)}</span><button data-act="rt-step" data-i="${i}" data-k="reps" data-v="1" aria-label="Longer hold">+</button></span></div>`
-         :`<div class="rt-f"><span class="label">Min reps</span><span class="stepper"><button data-act="rt-step" data-i="${i}" data-k="repMin" data-v="-1" aria-label="Lower minimum reps">−</button><span>${it.repMin}</span><button data-act="rt-step" data-i="${i}" data-k="repMin" data-v="1" aria-label="Raise minimum reps">+</button></span></div>
+         :it.amrap?`<div class="rt-f"><span class="label">Reps</span><span class="amrap-tag">To failure</span></div>`:`<div class="rt-f"><span class="label">Min reps</span><span class="stepper"><button data-act="rt-step" data-i="${i}" data-k="repMin" data-v="-1" aria-label="Lower minimum reps">−</button><span>${it.repMin}</span><button data-act="rt-step" data-i="${i}" data-k="repMin" data-v="1" aria-label="Raise minimum reps">+</button></span></div>
            <div class="rt-f"><span class="label">Max reps</span><span class="stepper"><button data-act="rt-step" data-i="${i}" data-k="repMax" data-v="-1" aria-label="Lower maximum reps">−</button><span>${it.repMax}</span><button data-act="rt-step" data-i="${i}" data-k="repMax" data-v="1" aria-label="Raise maximum reps">+</button></span></div>`}
-       ${tm?"":`<div class="rt-f"><span class="label">Weight jump (${S.unit})</span><span class="stepper"><button data-act="rt-incstep" data-i="${i}" data-v="-1" aria-label="Smaller weight jump">−</button><input class="step-in" id="rtinc-${i}" data-f="rtinc" data-i="${i}" inputmode="decimal" value="${wOut(it.inc||defaultIncKg())}" aria-label="Weight jump in ${S.unit}"><button data-act="rt-incstep" data-i="${i}" data-v="1" aria-label="Bigger weight jump">+</button></span></div>`}
+       ${tm||it.amrap?"":`<div class="rt-f"><span class="label">Weight jump (${S.unit})</span><span class="stepper"><button data-act="rt-incstep" data-i="${i}" data-v="-1" aria-label="Smaller weight jump">−</button><input class="step-in" id="rtinc-${i}" data-f="rtinc" data-i="${i}" inputmode="decimal" value="${wOut(it.inc||defaultIncKg())}" aria-label="Weight jump in ${S.unit}"><button data-act="rt-incstep" data-i="${i}" data-v="1" aria-label="Bigger weight jump">+</button></span></div>`}
        <div class="rt-f"><span class="label">Rest</span><span class="stepper"><button data-act="rt-step" data-i="${i}" data-k="rest" data-v="-1" aria-label="Shorter rest">−</button><span>${clock(it.rest||restFor(it))}</span><button data-act="rt-step" data-i="${i}" data-k="rest" data-v="1" aria-label="Longer rest">+</button></span></div></div>`:""}
-     <div class="chips rt-chips">${lift&&!tm?`<button class="chip" data-act="rt-tog" data-k="warmup" data-i="${i}" aria-pressed="${!!it.warmup}">Warm-up sets</button>`:""}
+     <div class="chips rt-chips">${lift&&!tm?`<button class="chip" data-act="rt-tog" data-k="amrap" data-i="${i}" aria-pressed="${!!it.amrap}">To failure</button><button class="chip" data-act="rt-tog" data-k="warmup" data-i="${i}" aria-pressed="${!!it.warmup}">Warm-up sets</button>`:""}
        ${i<last?`<button class="chip" data-act="rt-tog" data-k="ss" data-i="${i}" aria-pressed="${!!it.ss}">Superset with next</button>`:""}</div>
      <div class="row" style="flex-wrap:wrap"><button class="btn sm" data-act="rt-swap" data-i="${i}">Swap exercise</button><button class="btn sm" data-act="rt-info" data-i="${i}" aria-expanded="${S.rtInfo===i}">How to do it</button></div>
      ${S.rtInfo===i&&exById(it.exId)?exInfo(exById(it.exId)):""}</div></div>`}).join(""):'<div class="muted">No exercises yet.</div>'}</div>
@@ -1774,6 +1782,7 @@ document.addEventListener("click",ev=>{const b=ev.target.closest("[data-act]");i
     if(S.active&&S.tab!=="log"){S.tab="log";render();toast("Finish or discard the current workout first.");break}
     startWorkout(r.name,r.items.map(it=>{const ex=exById(it.exId)||{id:it.exId,name:it.name,kind:it.kind,group:"",timed:!!it.timed};let pf;
       if(it.kind==="cardio")pf={rid:r.id};else if(isTimed(it))pf={sets:it.sets,reps:it.reps,rid:r.id};
+      else if(it.amrap)pf={sets:it.sets,amrap:true,warmup:!!it.warmup,rid:r.id};
       else pf={sets:it.sets,prog:{min:it.repMin??it.reps??8,max:it.repMax??it.reps??12,inc:it.inc||defaultIncKg()},warmup:!!it.warmup,rid:r.id};
       const ne=newEntry(ex,pf);if(it.rest&&it.kind!=="cardio")ne.rest=it.rest;if(it.ss)ne.ss=true;return ne}),r.id);break}
   case "edit-w":{const w=S.workouts.find(x=>x.id===b.dataset.id);if(!w)break;
@@ -1784,7 +1793,7 @@ document.addEventListener("click",ev=>{const b=ev.target.closest("[data-act]");i
   case "repeat":{const w=S.workouts.find(x=>x.id===b.dataset.id);if(!w)break;if(S.active){S.tab="log";render();toast("Finish or discard the current workout first.");break}
     startWorkout(w.name,(w.entries||[]).map(e=>{const ex=exById(e.exId)||{id:e.exId,name:e.name,kind:e.kind};
       if(e.kind==="cardio")return newEntry(ex,{cardio:{mode:e.cardio&&e.cardio.mode,incline:e.cardio&&e.cardio.incline}});
-      const n=newEntry(ex,{sets:(e.sets||[]).length});n.sets=(e.sets||[]).map(s=>isTimed(e)?{w:s.w??null,t:s.t??null,done:false}:{w:s.w,r:s.r,done:false});return n}));break}
+      const n=newEntry(ex,{sets:(e.sets||[]).length,amrap:!!e.amrap});n.sets=(e.sets||[]).map(s=>isTimed(e)?{w:s.w??null,t:s.t??null,done:false}:{w:s.w,r:s.r,done:false});return n}));break}
   case "open-picker":if(v==="routine"){const sb=$("#sheet-b");S.rtReturn=sb?sb.scrollTop:0}S.sheet={type:"picker",target:v,q:"",group:"All",creating:false,sel:[]};renderSheet();setTimeout(()=>{const q=$("#pick-q");if(q&&window.matchMedia("(pointer:fine)").matches)q.focus()},30);break;
   case "pick-group":S.sheet.group=v;S.sheet.info=null;renderSheet();break;
   case "pick":{const ex=exById(b.dataset.id);if(!ex)break;const sh=S.sheet;
@@ -1838,7 +1847,7 @@ document.addEventListener("click",ev=>{const b=ev.target.closest("[data-act]");i
   case "rm-set":S.menu=null;a.entries[ei].sets.pop();saveProfile();render();break;
   case "done":{const e=a.entries[ei];const s=e.sets[si];
     if(!s.done){const tm=isTimed(e);const k=tm?"t":"r";const wi=work(e).indexOf(s);const last=lastEntry(e.exId);const ps=!s.wu&&last?work(last.e)[wi]:null;
-      if(s[k]==null||s[k]===""){const fill=!tm&&s.tr?s.tr:(ps&&ps[k]);if(fill)s[k]=fill;else{toast(tm?"Enter seconds for this set first.":"Enter reps for this set first.");break}}
+      if(s[k]==null||s[k]===""){const fill=e.amrap&&!s.wu?null:(!tm&&s.tr?s.tr:(ps&&ps[k]));if(fill)s[k]=fill;else{toast(tm?"Enter seconds for this set first.":e.amrap?"Enter how many reps you got.":"Enter reps for this set first.");break}}
       if(s.w==null&&ps&&ps.w)s.w=ps.w;s.done=true;S.justDone=e.uid+":"+si;setTimeout(()=>{S.justDone=null},400);try{navigator.vibrate&&navigator.vibrate(12)}catch(_){};const prt=s.wu||a.editOf?null:checkPR(e,s);if(!a.editOf){s.pr=!!prt;s.prt=prt||null}saveProfile();render();
       if(prt)celebrate(e.name,prt);afterSet(e,s,!!prt)}
     else{s.done=false;s.pr=false;s.prt=null;saveProfile();render()}break}
@@ -1851,6 +1860,7 @@ document.addEventListener("click",ev=>{const b=ev.target.closest("[data-act]");i
   case "ask-rmex":{const e=a.entries[ei];S.confirm="rmex-"+e.uid;render();break}
   case "del-set":{const e=a.entries[ei];if(e.sets.length<=1){toast("An exercise needs at least one set. Use ⋯ to remove the exercise.");render();break}e.sets.splice(si,1);saveProfile();render();break}
   case "ex-rest-set":{const e=a.entries[ei];e.rest=+v;S.exRest=Object.assign({},S.exRest,{[e.exId]:+v});saveProfile();render();toast(`${e.name}: ${clock(+v)} rest`);break}
+  case "amrap-tog":{const e=a.entries[ei];e.amrap=!e.amrap;if(e.amrap){e.prog=null;e.goal=null;e.target=null;work(e).forEach(x=>{if(!x.done)x.tr=null})}else{const pg=(S.exProg||{})[e.exId];if(pg)e.prog=Object.assign({},pg);replan(e)}saveProfile();render();break}
   case "prog-step":{const e=a.entries[ei];const k=b.dataset.k;const lr=S.lastRange||{min:8,max:12};
     if(!e.prog)e.prog={min:lr.min,max:lr.max,inc:defaultIncKg()};else{e.prog[k]=Math.max(1,Math.min(50,e.prog[k]+(+v)));if(e.prog.min>e.prog.max){if(k==="min")e.prog.max=e.prog.min;else e.prog.min=e.prog.max}}
     S.exProg=Object.assign({},S.exProg,{[e.exId]:Object.assign({},e.prog)});S.lastRange={min:e.prog.min,max:e.prog.max};replan(e);saveProfile();render();break}
@@ -1928,13 +1938,13 @@ function routineDiff(a){if(!a||a.editOf||!a.routineId)return null;const r=S.rout
   if(added.length)ch.push("Added "+added.join(", "));if(removed.length)ch.push("Removed "+removed.join(", "));
   const c1=wIds.filter(id=>rIds.includes(id)).join("|"),c2=rIds.filter(id=>wIds.includes(id)).join("|");if(c1!==c2)ch.push("New exercise order");
   ents.forEach(e=>{const it=r.items.find(i=>i.exId===e.exId);if(!it||e.kind==="cardio")return;const n=work(e).length;
-    if(n&&n!==it.sets)ch.push(`${e.name}: ${it.sets} → ${n} sets`);if(!!e.ss!==!!it.ss)ch.push(`${e.name}: superset ${e.ss?"on":"off"}`)});
+    if(n&&n!==it.sets)ch.push(`${e.name}: ${it.sets} → ${n} sets`);if(!isTimed(e)&&!!e.amrap!==!!it.amrap)ch.push(`${e.name}: ${e.amrap?"to failure":"back to a rep range"}`);if(!!e.ss!==!!it.ss)ch.push(`${e.name}: superset ${e.ss?"on":"off"}`)});
   if(!ch.length)return null;
   const items=ents.map(e=>{const it=r.items.find(i=>i.exId===e.exId);const ex=exById(e.exId)||{id:e.exId,name:e.name,kind:e.kind,timed:e.timed};
     const base=it?JSON.parse(JSON.stringify(it)):routineItemFor(ex);
     if(!it&&e.prog){base.repMin=e.prog.min;base.repMax=e.prog.max;base.reps=e.prog.min;base.inc=e.prog.inc||base.inc}
-    if(!it&&e.rest)base.rest=e.rest;if(!it&&(e.sets||[]).some(x=>x.wu))base.warmup=true;
-    if(e.kind!=="cardio"){const n=work(e).length;if(n)base.sets=n}
+    if(!it&&e.amrap)base.amrap=true;if(!it&&e.rest)base.rest=e.rest;if(!it&&(e.sets||[]).some(x=>x.wu))base.warmup=true;
+    if(e.kind!=="cardio"){const n=work(e).length;if(n)base.sets=n;if(!isTimed(e)){if(e.amrap)base.amrap=true;else{delete base.amrap;if(base.repMin==null){const pg=(S.exProg||{})[e.exId]||S.lastRange||{min:8,max:12};base.repMin=pg.min;base.repMax=pg.max;base.reps=pg.min;base.inc=base.inc||pg.inc||defaultIncKg()}}}}
     if(e.ss)base.ss=true;else delete base.ss;return base});
   return {rid:r.id,name:r.name,changes:ch,items}}
 function routineFromWorkout(w){return {id:uid(),name:w.name,isNew:true,items:(w.entries||[]).map(e=>{const ss=e.ss?{ss:true}:{};
@@ -1942,7 +1952,7 @@ function routineFromWorkout(w){return {id:uid(),name:w.name,isNew:true,items:(w.
   if(isTimed(e))return Object.assign({exId:e.exId,name:e.name,kind:"lift",timed:true,sets:W.length||3,reps:Math.max(5,...W.map(x=>x.t||0))},ss);
   const rs=W.map(x=>x.r).filter(Boolean);const pg=e.prog||(S.exProg||{})[e.exId];const mn=pg?pg.min:(rs.length?Math.min(...rs):8);const mx=pg?pg.max:Math.max(mn+2,...rs);
   const it={exId:e.exId,name:e.name,kind:"lift",sets:W.length||3,repMin:mn,repMax:mx,reps:mn,inc:(pg&&pg.inc)||defaultIncKg()};
-  const rest=(S.exRest||{})[e.exId];if(rest)it.rest=rest;if((e.sets||[]).some(x=>x.wu))it.warmup=true;return Object.assign(it,ss)})}}
+  const rest=(S.exRest||{})[e.exId];if(rest)it.rest=rest;if((e.sets||[]).some(x=>x.wu))it.warmup=true;if(e.amrap)it.amrap=true;return Object.assign(it,ss)})}}
 function addPicked(ex){const sh=S.sheet;
   if(sh.target==="routine"){S.rtErr=null;S.rtReturn="bottom";S.rtOpen=S.routineDraft.items.length;const pr=(S.exProg||{})[ex.id]||S.lastRange||{min:8,max:12};S.routineDraft.items.push(ex.kind==="cardio"?{exId:ex.id,name:ex.name,kind:ex.kind,sets:1}:ex.timed?{exId:ex.id,name:ex.name,kind:ex.kind,sets:3,reps:30,timed:true}:{exId:ex.id,name:ex.name,kind:ex.kind,sets:3,repMin:pr.min,repMax:pr.max,reps:pr.min,inc:pr.inc||defaultIncKg()});S.sheet={type:"routine"};renderSheet();return}
   if(!S.active){startWorkout(null,[newEntry(ex)]);S.sheet=null;renderSheet();return}
