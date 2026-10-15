@@ -252,6 +252,7 @@ select.in{text-align:left;padding:10px;appearance:auto}
 
 /* Routines */
 .rt-items{display:flex;flex-direction:column;gap:4px;font-size:14px;color:var(--muted)}
+.rt-items{gap:10px}.rt-items .line .n{color:var(--fg);font-weight:650;font-size:15px}.rt-items .line .v{color:var(--fg);font-weight:600;opacity:.85}.rt-it .rt-last{font-size:12.5px;margin-top:1px}
 .stepper{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:8px;overflow:hidden}
 .stepper button{border:0;background:var(--bg);width:30px;height:32px;font-weight:700}
 .stepper span{min-width:58px;text-align:center;font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;padding:0 4px}
@@ -647,7 +648,7 @@ body:not(.authed) .tabs,body:not(.authed) .top .seg,body:not(.authed) .top .icon
 <script>
 (function(){
 "use strict";
-const APP_VERSION="v27";const LB=0.45359237, MI=1.609344, LOCAL_KEY="ironbook-v1";
+const APP_VERSION="v28";const LB=0.45359237, MI=1.609344, LOCAL_KEY="ironbook-v1";
 const $=(s,r=document)=>r.querySelector(s);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
