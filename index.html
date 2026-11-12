@@ -571,6 +571,12 @@ body:not(.authed) .tabs,body:not(.authed) .top .seg,body:not(.authed) .top .icon
 @keyframes band{to{transform:translateX(0) skewY(-6deg)}}
 @keyframes card{to{transform:scale(1);opacity:1}}
 @media (prefers-reduced-motion:reduce){.ps-band,.ps-card{animation:none;transform:none;opacity:1}.chk.pop{animation:none}.srow{transition:none}}
+.rt-wu{display:flex;flex-direction:column;gap:8px;align-items:flex-start;width:100%}
+.rt-wu-row{display:flex;align-items:center;gap:6px;width:100%}
+.rt-wu-row .stepper button{width:36px}
+.rt-wu-row .stepper span{min-width:54px;padding:0 2px}
+.rt-wu-row .icon-btn{margin-left:auto}
+.rt-wu-n{width:16px;font-size:13px;font-weight:700;color:var(--muted,inherit);text-align:center}
 </style>
 </head>
 <body>
@@ -648,7 +654,7 @@ body:not(.authed) .tabs,body:not(.authed) .top .seg,body:not(.authed) .top .icon
 <script>
 (function(){
 "use strict";
-const APP_VERSION="v28";const LB=0.45359237, MI=1.609344, LOCAL_KEY="ironbook-v1";
+const APP_VERSION="v29";const LB=0.45359237, MI=1.609344, LOCAL_KEY="ironbook-v1";
 const $=(s,r=document)=>r.querySelector(s);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
@@ -1006,7 +1012,8 @@ function newEntry(ex,prefill){prefill=prefill||{};const rid=prefill.rid!==undefi
   e.sets=[];for(let i=0;i<n;i++){const ls=lw.length?lw[Math.min(i,lw.length-1)]:null;
     if(ex.timed)e.sets.push({w:ls?ls.w??null:null,t:prefill.reps||(ls?ls.t??null:null),done:false});
     else e.sets.push({w:plan&&plan.w!=null?plan.w:(ls?ls.w??null:null),r:null,tr:e.amrap?null:(plan?plan.r:(prefill.reps||(ls?ls.r:null))),done:false})}
-  if(prefill.warmup&&!ex.timed&&e.sets[0]&&e.sets[0].w)e.sets=genWarmups(e.sets[0].w).concat(e.sets);
+  if(prefill.warmup&&!ex.timed&&prefill.wu&&prefill.wu.length)e.sets=customWarmups(e.sets[0]&&e.sets[0].w,prefill.wu).concat(e.sets);
+  else if(prefill.warmup&&!ex.timed&&e.sets[0]&&e.sets[0].w)e.sets=genWarmups(e.sets[0].w).concat(e.sets);
   return e}
 function startWorkout(name,entries,routineId){
   S.active={id:uid(),name:name||defaultName(),startedAt:Date.now(),routineId:routineId||null,notes:"",entries:entries||[]};
@@ -1074,6 +1081,10 @@ function genWarmups(workKg){const bar=barKg();const out=[];if(!workKg||workKg<=b
   out.push({w:bar,r:null,tr:10,wu:true,done:false});
   [[.5,5],[.7,3],[.85,2]].forEach(([p,r])=>{const w=roundLoad(workKg*p);if(w>out[out.length-1].w+0.01&&w<workKg-0.01)out.push({w,r:null,tr:r,wu:true,done:false})});
   return out}
+const WU_DEF=()=>[{p:0,r:10},{p:50,r:5},{p:70,r:3},{p:85,r:2}];
+const wuLabel=p=>p?p+"%":"Bar";
+function customWarmups(workKg,list){const bar=barKg();
+  return list.map(g=>{let w=null;if(workKg){w=g.p?roundLoad(workKg*g.p/100):bar;w=Math.min(w,workKg)}return {w,r:null,tr:g.r,wu:true,done:false}})}
 function planNext(exId,prog,rid){if(!prog)return null;const last=lastEntry(exId,rid);
   const W=last?work(last.e).filter(s=>s.r):[];
   if(!W.length)return {r:prog.min,w:null,kind:"first"};
@@ -1755,7 +1766,7 @@ function routineBody(d){const last=d.items.length-1;
   return `<div class="field"><label class="label" for="rt-name">Routine name</label><input class="in" id="rt-name" data-f="rtname" value="${esc(d.name)}" placeholder="e.g. Upper body A" style="text-align:left;padding:11px"></div>
    <div>${d.items.length?d.items.map((it,i)=>{const tm=isTimed(it);const lift=it.kind!=="cardio";
      const open=S.rtOpen===i;const mn=it.repMin??it.reps,mx=it.repMax??it.reps;
-     const sum=it.kind==="cardio"?"Cardio":it.amrap&&!tm?`${it.sets} × to failure · ${clock(it.rest||restFor(it))} rest${it.warmup?" · warm-ups":""}`:tm?`${it.sets} × ${clock(it.reps)} hold · ${clock(it.rest||restFor(it))} rest`:`${it.sets} × ${mn===mx?mn:mn+"–"+mx} · ${clock(it.rest||restFor(it))} rest · +${wOut(it.inc||defaultIncKg())} ${S.unit}${it.warmup?" · warm-ups":""}`;
+     const sum=it.kind==="cardio"?"Cardio":it.amrap&&!tm?`${it.sets} × to failure · ${clock(it.rest||restFor(it))} rest${it.warmup?` · ${it.wu&&it.wu.length?it.wu.length+" ":""}warm-up${it.wu&&it.wu.length===1?"":"s"}`:""}`:tm?`${it.sets} × ${clock(it.reps)} hold · ${clock(it.rest||restFor(it))} rest`:`${it.sets} × ${mn===mx?mn:mn+"–"+mx} · ${clock(it.rest||restFor(it))} rest · +${wOut(it.inc||defaultIncKg())} ${S.unit}${it.warmup?` · ${it.wu&&it.wu.length?it.wu.length+" ":""}warm-up${it.wu&&it.wu.length===1?"":"s"}`:""}`;
      return `<div class="rt-edit-item${open?" open":""}${S.rtDrag===i?" dragging":""}"><div class="rt-top"><span class="rt-handle" data-i="${i}" role="button" aria-label="Drag to reorder ${esc(it.name)}">${ICON.grip}</span><button class="rt-sum" data-act="rt-open" data-i="${i}" aria-expanded="${open}"><span class="rt-n">${esc(it.name)}</span><span class="rt-s">${esc(sum)}${it.ss?" · superset":""}</span></button>
        <button class="icon-btn danger-i" data-act="rt-rm" data-i="${i}" aria-label="Remove ${esc(it.name)}">${ICON.x}</button></div>
      ${open?`<div class="rt-body">`:`<div class="rt-body" hidden>`}
@@ -1768,6 +1779,12 @@ function routineBody(d){const last=d.items.length-1;
        <div class="rt-f"><span class="label">Rest</span><span class="stepper"><button data-act="rt-step" data-i="${i}" data-k="rest" data-v="-1" aria-label="Shorter rest">−</button><span>${clock(it.rest||restFor(it))}</span><button data-act="rt-step" data-i="${i}" data-k="rest" data-v="1" aria-label="Longer rest">+</button></span></div></div>`:""}
      <div class="chips rt-chips">${lift&&!tm?`<button class="chip" data-act="rt-tog" data-k="amrap" data-i="${i}" aria-pressed="${!!it.amrap}">To failure</button><button class="chip" data-act="rt-tog" data-k="warmup" data-i="${i}" aria-pressed="${!!it.warmup}">Warm-up sets</button>`:""}
        ${i<last?`<button class="chip" data-act="rt-tog" data-k="ss" data-i="${i}" aria-pressed="${!!it.ss}">Superset with next</button>`:""}</div>
+     ${lift&&!tm&&it.warmup?`<div class="rt-wu"><span class="label">Warm-up goals · % of working weight × reps</span>
+       ${(it.wu||[]).map((g,j)=>`<div class="rt-wu-row"><span class="rt-wu-n">${j+1}</span>
+         <span class="stepper"><button data-act="rt-wu-step" data-i="${i}" data-j="${j}" data-k="p" data-v="-1" aria-label="Lighter warm-up ${j+1}">−</button><span>${wuLabel(g.p)}</span><button data-act="rt-wu-step" data-i="${i}" data-j="${j}" data-k="p" data-v="1" aria-label="Heavier warm-up ${j+1}">+</button></span>
+         <span class="stepper"><button data-act="rt-wu-step" data-i="${i}" data-j="${j}" data-k="r" data-v="-1" aria-label="Fewer reps on warm-up ${j+1}">−</button><span>${g.r} reps</span><button data-act="rt-wu-step" data-i="${i}" data-j="${j}" data-k="r" data-v="1" aria-label="More reps on warm-up ${j+1}">+</button></span>
+         <button class="icon-btn danger-i" data-act="rt-wu-rm" data-i="${i}" data-j="${j}" aria-label="Remove warm-up ${j+1}">${ICON.x}</button></div>`).join("")}
+       ${(it.wu||[]).length<6?`<button class="btn sm" data-act="rt-wu-add" data-i="${i}">+ Add warm-up set</button>`:""}</div>`:""}
      <div class="row" style="flex-wrap:wrap"><button class="btn sm" data-act="rt-swap" data-i="${i}">Swap exercise</button><button class="btn sm" data-act="rt-info" data-i="${i}" aria-expanded="${S.rtInfo===i}">How to do it</button></div>
      ${S.rtInfo===i&&exById(it.exId)?exInfo(exById(it.exId)):""}</div></div>`}).join(""):'<div class="muted">No exercises yet.</div>'}</div>
    ${d.items.length>1?`<div class="muted" style="font-size:13px">Drag ${ICON.grip.replace('<svg','<svg width="12" height="12" style="vertical-align:-1px"')} to reorder. Tap an exercise to edit it.</div>`:""}
@@ -1823,8 +1840,8 @@ document.addEventListener("click",ev=>{const b=ev.target.closest("[data-act]");i
     if(S.active&&S.tab!=="log"){S.tab="log";render();toast("Finish or discard the current workout first.");break}
     startWorkout(r.name,r.items.map(it=>{const ex=exById(it.exId)||{id:it.exId,name:it.name,kind:it.kind,group:"",timed:!!it.timed};let pf;
       if(it.kind==="cardio")pf={rid:r.id};else if(isTimed(it))pf={sets:it.sets,reps:it.reps,rid:r.id};
-      else if(it.amrap)pf={sets:it.sets,amrap:true,warmup:!!it.warmup,rid:r.id};
-      else pf={sets:it.sets,prog:{min:it.repMin??it.reps??8,max:it.repMax??it.reps??12,inc:it.inc||defaultIncKg()},warmup:!!it.warmup,rid:r.id};
+      else if(it.amrap)pf={sets:it.sets,amrap:true,warmup:!!it.warmup,wu:it.wu,rid:r.id};
+      else pf={sets:it.sets,prog:{min:it.repMin??it.reps??8,max:it.repMax??it.reps??12,inc:it.inc||defaultIncKg()},warmup:!!it.warmup,wu:it.wu,rid:r.id};
       const ne=newEntry(ex,pf);if(it.rest&&it.kind!=="cardio")ne.rest=it.rest;if(it.ss)ne.ss=true;return ne}),r.id);break}
   case "edit-w":{const w=S.workouts.find(x=>x.id===b.dataset.id);if(!w)break;
     if(S.active){S.tab="log";render();toast(S.active.editOf?"Save or cancel the workout you're editing first.":"Finish or discard your current workout first.");break}
@@ -1941,7 +1958,7 @@ document.addEventListener("click",ev=>{const b=ev.target.closest("[data-act]");i
   case "more":S.histLimit+=30;render();break;
   case "metric":S.progMetric=v;render();break;
   case "new-routine":S.rtErr=null;S.rtOpen=-1;S.routineDraft={id:uid(),name:"",items:[],isNew:true};S.sheet={type:"routine"};renderSheet();break;
-  case "edit-routine":{S.rtErr=null;S.rtOpen=-1;const r=S.routines.find(x=>x.id===b.dataset.id);S.routineDraft=JSON.parse(JSON.stringify(r));S.routineDraft.items.forEach(it=>{if(it.kind!=="cardio"&&!isTimed(it)&&it.repMin==null){it.repMin=it.reps||8;it.repMax=it.reps||8}});S.sheet={type:"routine"};renderSheet();break}
+  case "edit-routine":{S.rtErr=null;S.rtOpen=-1;const r=S.routines.find(x=>x.id===b.dataset.id);S.routineDraft=JSON.parse(JSON.stringify(r));S.routineDraft.items.forEach(it=>{if(it.kind!=="cardio"&&!isTimed(it)&&it.repMin==null){it.repMin=it.reps||8;it.repMax=it.reps||8}if(it.warmup&&!(it.wu&&it.wu.length))it.wu=WU_DEF()});S.sheet={type:"routine"};renderSheet();break}
   case "add-template":{const t=TEMPLATES[+v];S.routines.push({id:uid(),name:t.name,items:t.items.map(([id,sets,mn,mx])=>{const ex=exById(id);
     return ex.kind==="cardio"?{exId:id,name:ex.name,kind:ex.kind,sets:1}:{exId:id,name:ex.name,kind:ex.kind,sets,repMin:mn,repMax:mx,reps:mn,inc:defaultIncKg()}})});saveProfile();render();toast(t.name+" added to your routines");break}
   case "rt-step":{const it=S.routineDraft.items[+b.dataset.i];const k=b.dataset.k;
@@ -1950,7 +1967,12 @@ document.addEventListener("click",ev=>{const b=ev.target.closest("[data-act]");i
     const tm=k==="reps"&&isTimed(it);it[k]=Math.max(tm?5:1,Math.min(k==="sets"?10:tm?600:50,(it[k]||0)+(+v)*(tm?5:1)));renderSheet();break}
   case "rt-incstep":{const it=S.routineDraft.items[+b.dataset.i];it.inc=stepInc(it.inc||defaultIncKg(),+v);renderSheet();break}
   case "rt-inc":{const it=S.routineDraft.items[+b.dataset.i];const o=INC_OPTS();const cur=it.inc||defaultIncKg();const ix=o.findIndex(x=>Math.abs(x-cur)<1e-6);it.inc=o[(ix+1)%o.length];renderSheet();break}
-  case "rt-tog":{const it=S.routineDraft.items[+b.dataset.i];it[b.dataset.k]=!it[b.dataset.k];renderSheet();break}
+  case "rt-tog":{const it=S.routineDraft.items[+b.dataset.i];it[b.dataset.k]=!it[b.dataset.k];if(b.dataset.k==="warmup"&&it.warmup&&!(it.wu&&it.wu.length))it.wu=WU_DEF();renderSheet();break}
+  case "rt-wu-step":{const it=S.routineDraft.items[+b.dataset.i];const g=(it.wu||[])[+b.dataset.j];if(!g)break;
+    if(b.dataset.k==="p")g.p=Math.max(0,Math.min(95,(g.p||0)+(+v)*5));else g.r=Math.max(1,Math.min(30,(g.r||1)+(+v)));renderSheet();break}
+  case "rt-wu-add":{const it=S.routineDraft.items[+b.dataset.i];it.wu=it.wu||[];const l=it.wu[it.wu.length-1];
+    it.wu.push(l?{p:Math.min(95,(l.p||40)+10),r:Math.max(1,l.r-1)}:{p:50,r:5});renderSheet();break}
+  case "rt-wu-rm":{const it=S.routineDraft.items[+b.dataset.i];it.wu.splice(+b.dataset.j,1);if(!it.wu.length)it.warmup=false;renderSheet();break}
   case "rt-open":{const i=+b.dataset.i;S.rtOpen=S.rtOpen===i?-1:i;renderSheet();break}
   case "rt-up":{const i=+b.dataset.i;const it=S.routineDraft.items;[it[i-1],it[i]]=[it[i],it[i-1]];renderSheet();break}
   case "rt-rm":S.routineDraft.items.splice(+b.dataset.i,1);renderSheet();break;
@@ -1974,7 +1996,7 @@ function addMany(list){const sh=S.sheet;
 function swapTo(ex){const sh=S.sheet;
   if(sh.target==="swap-routine"){const it=S.routineDraft.items[sh.idx];const fresh=routineItemFor(ex);
     const sameKind=(it.kind==="cardio")===(ex.kind==="cardio")&&!!isTimed(it)===!!ex.timed;
-    const keep=sameKind?{sets:it.sets,repMin:it.repMin,repMax:it.repMax,reps:it.reps,inc:it.inc,rest:it.rest,warmup:it.warmup}:{sets:it.sets,rest:it.rest};
+    const keep=sameKind?{sets:it.sets,repMin:it.repMin,repMax:it.repMax,reps:it.reps,inc:it.inc,rest:it.rest,warmup:it.warmup,wu:it.wu}:{sets:it.sets,rest:it.rest};
     Object.keys(keep).forEach(k=>keep[k]===undefined&&delete keep[k]);
     S.routineDraft.items[sh.idx]=Object.assign(fresh,keep,it.ss?{ss:true}:{});S.rtOpen=sh.idx;S.sheet={type:"routine"};renderSheet();toast(`Swapped in ${ex.name}`);return}
   const a=S.active;const old=a.entries[sh.ei];if(!old){S.sheet=null;render();return}
