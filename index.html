@@ -575,6 +575,7 @@ body:not(.authed) .tabs,body:not(.authed) .top .seg,body:not(.authed) .top .icon
 .rt-wu-row{display:flex;align-items:center;gap:6px;width:100%}
 .rt-wu-row .stepper button{width:36px}
 .rt-wu-row .stepper span{min-width:54px;padding:0 2px}
+.rt-wu-row .step-in{width:54px}
 .rt-wu-row .icon-btn{margin-left:auto}
 .rt-wu-n{width:16px;font-size:13px;font-weight:700;color:var(--muted,inherit);text-align:center}
 </style>
@@ -654,7 +655,7 @@ body:not(.authed) .tabs,body:not(.authed) .top .seg,body:not(.authed) .top .icon
 <script>
 (function(){
 "use strict";
-const APP_VERSION="v29";const LB=0.45359237, MI=1.609344, LOCAL_KEY="ironbook-v1";
+const APP_VERSION="v30";const LB=0.45359237, MI=1.609344, LOCAL_KEY="ironbook-v1";
 const $=(s,r=document)=>r.querySelector(s);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
@@ -1012,7 +1013,7 @@ function newEntry(ex,prefill){prefill=prefill||{};const rid=prefill.rid!==undefi
   e.sets=[];for(let i=0;i<n;i++){const ls=lw.length?lw[Math.min(i,lw.length-1)]:null;
     if(ex.timed)e.sets.push({w:ls?ls.w??null:null,t:prefill.reps||(ls?ls.t??null:null),done:false});
     else e.sets.push({w:plan&&plan.w!=null?plan.w:(ls?ls.w??null:null),r:null,tr:e.amrap?null:(plan?plan.r:(prefill.reps||(ls?ls.r:null))),done:false})}
-  if(prefill.warmup&&!ex.timed&&prefill.wu&&prefill.wu.length)e.sets=customWarmups(e.sets[0]&&e.sets[0].w,prefill.wu).concat(e.sets);
+  if(prefill.warmup&&!ex.timed&&prefill.wu&&prefill.wu.length&&prefill.wu.every(g=>g.w!==undefined))e.sets=customWarmups(prefill.wu).concat(e.sets);
   else if(prefill.warmup&&!ex.timed&&e.sets[0]&&e.sets[0].w)e.sets=genWarmups(e.sets[0].w).concat(e.sets);
   return e}
 function startWorkout(name,entries,routineId){
@@ -1081,10 +1082,10 @@ function genWarmups(workKg){const bar=barKg();const out=[];if(!workKg||workKg<=b
   out.push({w:bar,r:null,tr:10,wu:true,done:false});
   [[.5,5],[.7,3],[.85,2]].forEach(([p,r])=>{const w=roundLoad(workKg*p);if(w>out[out.length-1].w+0.01&&w<workKg-0.01)out.push({w,r:null,tr:r,wu:true,done:false})});
   return out}
-const WU_DEF=()=>[{p:0,r:10},{p:50,r:5},{p:70,r:3},{p:85,r:2}];
-const wuLabel=p=>p?p+"%":"Bar";
-function customWarmups(workKg,list){const bar=barKg();
-  return list.map(g=>{let w=null;if(workKg){w=g.p?roundLoad(workKg*g.p/100):bar;w=Math.min(w,workKg)}return {w,r:null,tr:g.r,wu:true,done:false}})}
+function wuDef(exId){const last=lastEntry(exId,null);const W=last?work(last.e).filter(x=>x.w):[];const g=W.length?genWarmups(W[0].w):[];
+  return g.length?g.map(x=>({w:x.w,r:x.tr})):[{w:barKg(),r:10}]}
+const wuNorm=(it)=>{if(!it.warmup)return;if(!(it.wu&&it.wu.length)||it.wu.some(g=>g.w===undefined))it.wu=wuDef(it.exId)};
+function customWarmups(list){return list.map(g=>({w:g.w??null,r:null,tr:g.r,wu:true,done:false}))}
 function planNext(exId,prog,rid){if(!prog)return null;const last=lastEntry(exId,rid);
   const W=last?work(last.e).filter(s=>s.r):[];
   if(!W.length)return {r:prog.min,w:null,kind:"first"};
@@ -1779,9 +1780,9 @@ function routineBody(d){const last=d.items.length-1;
        <div class="rt-f"><span class="label">Rest</span><span class="stepper"><button data-act="rt-step" data-i="${i}" data-k="rest" data-v="-1" aria-label="Shorter rest">−</button><span>${clock(it.rest||restFor(it))}</span><button data-act="rt-step" data-i="${i}" data-k="rest" data-v="1" aria-label="Longer rest">+</button></span></div></div>`:""}
      <div class="chips rt-chips">${lift&&!tm?`<button class="chip" data-act="rt-tog" data-k="amrap" data-i="${i}" aria-pressed="${!!it.amrap}">To failure</button><button class="chip" data-act="rt-tog" data-k="warmup" data-i="${i}" aria-pressed="${!!it.warmup}">Warm-up sets</button>`:""}
        ${i<last?`<button class="chip" data-act="rt-tog" data-k="ss" data-i="${i}" aria-pressed="${!!it.ss}">Superset with next</button>`:""}</div>
-     ${lift&&!tm&&it.warmup?`<div class="rt-wu"><span class="label">Warm-up goals · % of working weight × reps</span>
+     ${lift&&!tm&&it.warmup?`<div class="rt-wu"><span class="label">Warm-up goals · weight (${S.unit}) × reps</span>
        ${(it.wu||[]).map((g,j)=>`<div class="rt-wu-row"><span class="rt-wu-n">${j+1}</span>
-         <span class="stepper"><button data-act="rt-wu-step" data-i="${i}" data-j="${j}" data-k="p" data-v="-1" aria-label="Lighter warm-up ${j+1}">−</button><span>${wuLabel(g.p)}</span><button data-act="rt-wu-step" data-i="${i}" data-j="${j}" data-k="p" data-v="1" aria-label="Heavier warm-up ${j+1}">+</button></span>
+         <span class="stepper"><button data-act="rt-wu-step" data-i="${i}" data-j="${j}" data-k="w" data-v="-1" aria-label="Lighter warm-up ${j+1}">−</button><input class="step-in" id="rtwu-${i}-${j}" data-f="rtwu" data-i="${i}" data-j="${j}" inputmode="decimal" value="${wOut(g.w)}" placeholder="${S.unit}" aria-label="Warm-up ${j+1} weight in ${S.unit}"><button data-act="rt-wu-step" data-i="${i}" data-j="${j}" data-k="w" data-v="1" aria-label="Heavier warm-up ${j+1}">+</button></span>
          <span class="stepper"><button data-act="rt-wu-step" data-i="${i}" data-j="${j}" data-k="r" data-v="-1" aria-label="Fewer reps on warm-up ${j+1}">−</button><span>${g.r} reps</span><button data-act="rt-wu-step" data-i="${i}" data-j="${j}" data-k="r" data-v="1" aria-label="More reps on warm-up ${j+1}">+</button></span>
          <button class="icon-btn danger-i" data-act="rt-wu-rm" data-i="${i}" data-j="${j}" aria-label="Remove warm-up ${j+1}">${ICON.x}</button></div>`).join("")}
        ${(it.wu||[]).length<6?`<button class="btn sm" data-act="rt-wu-add" data-i="${i}">+ Add warm-up set</button>`:""}</div>`:""}
@@ -1958,7 +1959,7 @@ document.addEventListener("click",ev=>{const b=ev.target.closest("[data-act]");i
   case "more":S.histLimit+=30;render();break;
   case "metric":S.progMetric=v;render();break;
   case "new-routine":S.rtErr=null;S.rtOpen=-1;S.routineDraft={id:uid(),name:"",items:[],isNew:true};S.sheet={type:"routine"};renderSheet();break;
-  case "edit-routine":{S.rtErr=null;S.rtOpen=-1;const r=S.routines.find(x=>x.id===b.dataset.id);S.routineDraft=JSON.parse(JSON.stringify(r));S.routineDraft.items.forEach(it=>{if(it.kind!=="cardio"&&!isTimed(it)&&it.repMin==null){it.repMin=it.reps||8;it.repMax=it.reps||8}if(it.warmup&&!(it.wu&&it.wu.length))it.wu=WU_DEF()});S.sheet={type:"routine"};renderSheet();break}
+  case "edit-routine":{S.rtErr=null;S.rtOpen=-1;const r=S.routines.find(x=>x.id===b.dataset.id);S.routineDraft=JSON.parse(JSON.stringify(r));S.routineDraft.items.forEach(it=>{if(it.kind!=="cardio"&&!isTimed(it)&&it.repMin==null){it.repMin=it.reps||8;it.repMax=it.reps||8}wuNorm(it)});S.sheet={type:"routine"};renderSheet();break}
   case "add-template":{const t=TEMPLATES[+v];S.routines.push({id:uid(),name:t.name,items:t.items.map(([id,sets,mn,mx])=>{const ex=exById(id);
     return ex.kind==="cardio"?{exId:id,name:ex.name,kind:ex.kind,sets:1}:{exId:id,name:ex.name,kind:ex.kind,sets,repMin:mn,repMax:mx,reps:mn,inc:defaultIncKg()}})});saveProfile();render();toast(t.name+" added to your routines");break}
   case "rt-step":{const it=S.routineDraft.items[+b.dataset.i];const k=b.dataset.k;
@@ -1967,11 +1968,11 @@ document.addEventListener("click",ev=>{const b=ev.target.closest("[data-act]");i
     const tm=k==="reps"&&isTimed(it);it[k]=Math.max(tm?5:1,Math.min(k==="sets"?10:tm?600:50,(it[k]||0)+(+v)*(tm?5:1)));renderSheet();break}
   case "rt-incstep":{const it=S.routineDraft.items[+b.dataset.i];it.inc=stepInc(it.inc||defaultIncKg(),+v);renderSheet();break}
   case "rt-inc":{const it=S.routineDraft.items[+b.dataset.i];const o=INC_OPTS();const cur=it.inc||defaultIncKg();const ix=o.findIndex(x=>Math.abs(x-cur)<1e-6);it.inc=o[(ix+1)%o.length];renderSheet();break}
-  case "rt-tog":{const it=S.routineDraft.items[+b.dataset.i];it[b.dataset.k]=!it[b.dataset.k];if(b.dataset.k==="warmup"&&it.warmup&&!(it.wu&&it.wu.length))it.wu=WU_DEF();renderSheet();break}
+  case "rt-tog":{const it=S.routineDraft.items[+b.dataset.i];it[b.dataset.k]=!it[b.dataset.k];if(b.dataset.k==="warmup")wuNorm(it);renderSheet();break}
   case "rt-wu-step":{const it=S.routineDraft.items[+b.dataset.i];const g=(it.wu||[])[+b.dataset.j];if(!g)break;
-    if(b.dataset.k==="p")g.p=Math.max(0,Math.min(95,(g.p||0)+(+v)*5));else g.r=Math.max(1,Math.min(30,(g.r||1)+(+v)));renderSheet();break}
-  case "rt-wu-add":{const it=S.routineDraft.items[+b.dataset.i];it.wu=it.wu||[];const l=it.wu[it.wu.length-1];
-    it.wu.push(l?{p:Math.min(95,(l.p||40)+10),r:Math.max(1,l.r-1)}:{p:50,r:5});renderSheet();break}
+    if(b.dataset.k==="w"){const st=S.unit==="lb"?5*LB:2.5;g.w=Math.max(0,Math.round(((g.w||0)+(+v)*st)/st)*st)}else g.r=Math.max(1,Math.min(30,(g.r||1)+(+v)));renderSheet();break}
+  case "rt-wu-add":{const it=S.routineDraft.items[+b.dataset.i];it.wu=it.wu||[];const l=it.wu[it.wu.length-1];const st=S.unit==="lb"?10*LB:5;
+    it.wu.push(l?{w:l.w!=null?l.w+st:null,r:Math.max(1,l.r-1)}:{w:barKg(),r:10});renderSheet();break}
   case "rt-wu-rm":{const it=S.routineDraft.items[+b.dataset.i];it.wu.splice(+b.dataset.j,1);if(!it.wu.length)it.warmup=false;renderSheet();break}
   case "rt-open":{const i=+b.dataset.i;S.rtOpen=S.rtOpen===i?-1:i;renderSheet();break}
   case "rt-up":{const i=+b.dataset.i;const it=S.routineDraft.items;[it[i-1],it[i]]=[it[i],it[i-1]];renderSheet();break}
@@ -2041,6 +2042,7 @@ document.addEventListener("input",ev=>{const t=ev.target;const f=t.dataset.f;if(
   case "cdist":a.entries[ei].cardio.dist=dIn(t.value);saveProfile();updPace(ei);break;
   case "cinc":{const n=parseFloat(t.value);a.entries[ei].cardio.incline=isNaN(n)?null:n;saveProfile();break}
   case "ctime":{const s=parseClock(t.value);if(s!=null||t.value===""){a.entries[ei].cardio.time=s;saveProfile();updPace(ei)}break}
+  case "rtwu":{const g=(S.routineDraft.items[+t.dataset.i].wu||[])[+t.dataset.j];if(g){const n=wIn(t.value);g.w=n!=null&&n>=0?n:null}break}
   case "rtinc":{const n=wIn(t.value);if(n&&n>0)S.routineDraft.items[+t.dataset.i].inc=n;break}
   case "proginc":{const n=wIn(t.value);if(n&&n>0){const e=a.entries[ei];if(!e.prog){const lr=S.lastRange||{min:8,max:12};e.prog={min:lr.min,max:lr.max}}e.prog.inc=n;S.exProg=Object.assign({},S.exProg,{[e.exId]:Object.assign({},e.prog)});saveProfile()}break}
   case "platew":S.sheet.total=t.value;$("#plate-out").innerHTML=plateOut();break;
